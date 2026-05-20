@@ -1,23 +1,18 @@
-import { useEffect, useState } from 'react'
-import { supabase } from './supabase'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
+import DashboardPage from './pages/DashboardPage'
 
 function App() {
-  const [connected, setConnected] = useState(false)
-
-  useEffect(() => {
-    supabase
-      .from('organizations')
-      .select('*')
-      .then(({ error }) => {
-        if (!error) setConnected(true)
-      })
-  }, [])
-
   return (
-    <div style={{ padding: '2rem' }}>
-      <h1>Shift Scheduler</h1>
-      <p>Supabase 连接状态：{connected ? '✅ 成功' : '⏳ 连接中...'}</p>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="*" element={<Navigate to="/login" />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
