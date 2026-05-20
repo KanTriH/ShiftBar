@@ -23,15 +23,16 @@ export default function DashboardPage() {
         return
     }
 
-    console.log('session user id:', session.user.id)
-
-    const { data, error } = await supabase
+    const { data } = await supabase
         .from('users')
         .select('*')
         .eq('id', session.user.id)
         .single()
 
-    console.log('user data:', data, 'error:', error)
+    if (!data?.organization_id) {
+        navigate('/onboarding')
+        return
+    }
 
     setUser(data)
     setLoading(false)
