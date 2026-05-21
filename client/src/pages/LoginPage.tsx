@@ -9,17 +9,19 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleLogin() {
+    async function handleLogin() {
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    console.log('login result:', data, error)  // 加这行
     if (error) {
-      setError(error.message)
+        setError(error.message)
     } else {
-      navigate('/dashboard')
+        navigate('/dashboard')
     }
     setLoading(false)
-  }
+    }
+  
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">

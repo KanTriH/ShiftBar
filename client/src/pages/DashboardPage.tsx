@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabase'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../AuthContext'
 
 interface User {
   id: string
@@ -12,40 +13,38 @@ interface User {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const { session, loading: authLoading } = useAuth()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function loadUser() {
-    const { data: { session } } = await supabase.auth.getSession()
+    if (authLoading) return
     if (!session) {
-        navigate('/login')
-        return
+      navigate('/login')
+      return
     }
 
-    const { data } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single()
-
-    if (!data?.organization_id) {
-        navigate('/onboarding')
-        return
-    }
-
-    setUser(data)
-    setLoading(false)
-    }
-    loadUser()
-  }, [])
+    supabase
+      .from('users')
+      .select('*')
+      .eq('id', session.user.id)
+      .single()
+      .then(({ data }) => {
+        if (!data?.organization_id) {
+          navigate('/onboarding')
+          return
+        }
+        setUser(data)
+        setLoading(false)
+      })
+  }, [session, authLoading])
 
   async function handleLogout() {
     await supabase.auth.signOut()
     navigate('/login')
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p className="text-gray-500 text-sm">Loading...</p>
@@ -92,10 +91,17 @@ function ManagerView() {
 }
 
 function StaffView({ name }: { name: string }) {
+  const navigate = useNavigate()
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-800 mb-2">Hi, {name}!</h2>
-      <p className="text-gray-500 text-sm">Your schedule will appear here.</p>
+      <p className="text-gray-500 text-sm mb-6">Your schedule will appear here.</p>
+      <button
+        onClick={() => navigate('/availability')}
+        className="bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg px-4 py-2 text-sm transition-colors"
+      >
+        Submit this week's availability
+      </button>
     </div>
   )
 }
