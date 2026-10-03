@@ -1,0 +1,246 @@
+// 演示模式：未配置 Supabase 时使用，全部数据保存在浏览器 localStorage。
+// 行为与 supabaseApi 保持一致（包括访客按名字报班、员工认领、发布后才可见）。
+import type { Api } from './api'
+import type {
+  AppUser, AvailEntry, Availability, Member, Position, Role, Shift, Shop,
+} from '../lib/types'
+import { DEFAULT_HOURS, POSITION_COLORS } from '../lib/types'
+import { addDays, todayISO, weekStart } from '../lib/time'
+
+interface DemoUser { id: string; email: string; role: Role }
+interface DB {
+  users: DemoUser[]
+  session: string | null
+  shops: (Shop & { owner_id: string })[]
+  positions: Position[]
+  members: Member[]
+  availability: Availability[]
+  shifts: Shift[]
+  publications: { shop_id: string; week_start: string }[]
+}
+
+const KEY = 'shift-scheduler-demo-v1'
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36))
+const delay = () => new Promise((r) => setTimeout(r, 40))
+
+export const DEMO_ACCOUNTS = {
+  manager: { email: 'boss@demo.shift', password: 'demo1234' },
+  staff: { email: 'lin@demo.shift', password: 'demo1234' },
+}
+export const DEMO_SHOP_CODE = 'zhaomu01'
+
+function seed(): DB {
+  const ws = weekStart(todayISO())
+  const owner: DemoUser = { id: 'u-boss', email: DEMO_ACCOUNTS.manager.email, role: 'manager' }
+  const lin: DemoUser = { id: 'u-lin', email: DEMO_ACCOUNTS.staff.email, role: 'staff' }
+  const shop = { id: 's1', owner_id: owner.id, name: '朝暮茶事', code: DEMO_SHOP_CODE, hours: DEFAULT_HOURS.map((h, i) => (i >= 5 ? { open: 600, close: 1380 } : { ...h, close: 1260 })) }
+  const pos: Position[] = [
+    { id: 'p-prep', shop_id: 's1', name: 'prep', color: POSITION_COLORS[1], sort: 0 },
+    { id: 'p-bar', shop_id: 's1', name: 'bar', color: POSITION_COLORS[2], sort: 1 },
+    { id: 'p-cash', shop_id: 's1', name: 'cashier', color: POSITION_COLORS[0], sort: 2 },
+  ]
+  const names: [string, Member['status'], string | null][] = [
+    ['林晓', 'regular', lin.id], ['周屿', 'regular', null], ['陈嘉禾', 'trial', null],
+    ['吴桐', 'regular', null], ['许安然', 'trial', null], ['高见', 'regular', null],
+  ]
+  const members: Member[] = names.map(([name, status, user_id], i) => ({ id: `m${i + 1}`, shop_id: 's1', name, status, user_id }))
+  const availability: Availability[] = []
+  // 每人一套大致的可用时间模式（分钟）；周末营业时间更晚
+  const pattern: Record<string, (d: number) => [number, number][]> = {
+    m1: (d) => (d < 5 ? [[540, 1020]] : [[600, 1380]]),
+    m2: (d) => (d % 2 === 0 ? [[720, 1260]] : []),
+    m3: (d) => (d >= 4 ? [[600, 1080]] : [[900, 1260]]),
+    m4: (d) => (d < 3 ? [[540, 840]] : [[540, 1260]]),
+    m5: (d) => (d === 1 || d === 3 || d >= 5 ? [[600, 1380]] : []),
+    m6: (d) => (d < 6 ? [[660, 1260]] : []),
+  }
+  for (const m of members) {
+    if (m.id === 'm5') continue // 许安然还没报班，演示"未提交"状态
+    for (let d = 0; d < 7; d++) {
+      const h = shop.hours[d]
+      if (!h) continue
+      for (const [a, b] of pattern[m.id](d)) {
+        availability.push({ id: uid(), shop_id: 's1', member_id: m.id, day: addDays(ws, d), start_min: Math.max(a, h.open), end_min: Math.min(b, h.close), note: '' })
+      }
+    }
+  }
+  const shifts: Shift[] = [
+    ['m1', 'p-cash', 0, 540, 900], ['m4', 'p-prep', 0, 540, 840], ['m2', 'p-bar', 0, 720, 1260], ['m6', 'p-bar', 0, 660, 900],
+    ['m1', 'p-cash', 1, 540, 900], ['m4', 'p-prep', 1, 540, 840], ['m3', 'p-bar', 1, 900, 1260],
+    ['m1', 'p-cash', 2, 540, 1020], ['m2', 'p-bar', 2, 720, 1260], ['m4', 'p-prep', 2, 540, 840],
+  ].map(([m, p, d, a, b]) => ({ id: uid(), shop_id: 's1', member_id: m as string, position_id: p as string, day: addDays(ws, d as number), start_min: a as number, end_min: b as number, note: '' }))
+  return {
+    users: [owner, lin], session: null, shops: [shop], positions: pos, members, availability, shifts,
+    publications: [{ shop_id: 's1', week_start: ws }],
+  }
+}
+
+function load(): DB {
+  try {
+    const raw = localStorage.getItem(KEY)
+    if (raw) return JSON.parse(raw) as DB
+  } catch { /* ignore */ }
+  const db = seed()
+  save(db)
+  return db
+}
+function save(db: DB) { try { localStorage.setItem(KEY, JSON.stringify(db)) } catch { /* ignore */ } }
+export function resetDemo() { try { localStorage.removeItem(KEY) } catch { /* ignore */ } }
+
+const weekOf = (day: string) => weekStart(day)
+const strip = (s: Shop & { owner_id?: string }): Shop => ({ id: s.id, name: s.name, code: s.code, hours: s.hours })
+
+export function createDemoApi(): Api {
+  let db = load()
+  const listeners = new Set<(u: AppUser | null) => void>()
+  const commit = () => save(db)
+  const me = (): DemoUser | null => db.users.find((u) => u.id === db.session) ?? null
+  const asUser = (u: DemoUser | null): AppUser | null => (u ? { id: u.id, email: u.email, role: u.role } : null)
+  const emit = () => listeners.forEach((cb) => cb(asUser(me())))
+  const shopByCode = (code: string) => db.shops.find((s) => s.code === code)
+
+  return {
+    mode: 'demo',
+    async getUser() { await delay(); return asUser(me()) },
+    onAuth(cb) { listeners.add(cb); return () => { listeners.delete(cb) } },
+    async signUp(email, _password, role) {
+      await delay()
+      if (db.users.some((u) => u.email.toLowerCase() === email.toLowerCase())) throw new Error('User already registered')
+      const u = { id: uid(), email, role }
+      db.users.push(u); db.session = u.id; commit(); emit()
+    },
+    async signIn(email) {
+      await delay()
+      const u = db.users.find((x) => x.email.toLowerCase() === email.toLowerCase())
+      if (!u) throw new Error('Invalid login credentials')
+      db.session = u.id; commit(); emit()
+    },
+    async signOut() { db.session = null; commit(); emit() },
+
+    async getOwnedShop() {
+      await delay()
+      const u = me(); const s = u && db.shops.find((x) => x.owner_id === u.id)
+      return s ? strip(s) : null
+    },
+    async createShop(name, positionNames) {
+      await delay()
+      const u = me()!
+      const s = { id: uid(), owner_id: u.id, name, code: uid().replace(/-/g, '').slice(0, 8), hours: DEFAULT_HOURS.map((h) => ({ ...h })) }
+      db.shops.push(s)
+      positionNames.forEach((n, i) => db.positions.push({ id: uid(), shop_id: s.id, name: n, color: POSITION_COLORS[i % POSITION_COLORS.length], sort: i }))
+      commit(); return strip(s)
+    },
+    async updateShop(id, patch) {
+      const s = db.shops.find((x) => x.id === id)!
+      Object.assign(s, patch); commit()
+    },
+
+    async listPositions(shopId) { await delay(); return db.positions.filter((p) => p.shop_id === shopId).sort((a, b) => a.sort - b.sort) },
+    async createPosition(shopId, name, color) {
+      const p: Position = { id: uid(), shop_id: shopId, name, color, sort: db.positions.filter((x) => x.shop_id === shopId).length }
+      db.positions.push(p); commit(); return p
+    },
+    async updatePosition(id, patch) { Object.assign(db.positions.find((p) => p.id === id)!, patch); commit() },
+    async deletePosition(id) {
+      db.positions = db.positions.filter((p) => p.id !== id)
+      db.shifts.forEach((s) => { if (s.position_id === id) s.position_id = null })
+      commit()
+    },
+
+    async listMembers(shopId) { await delay(); return db.members.filter((m) => m.shop_id === shopId) },
+    async createMember(shopId, name, status) {
+      if (db.members.some((m) => m.shop_id === shopId && m.name.toLowerCase() === name.toLowerCase())) throw new Error('这个名字已经存在')
+      const m: Member = { id: uid(), shop_id: shopId, name, status, user_id: null }
+      db.members.push(m); commit(); return m
+    },
+    async updateMember(id, patch) { Object.assign(db.members.find((m) => m.id === id)!, patch); commit() },
+    async deleteMember(id) {
+      db.members = db.members.filter((m) => m.id !== id)
+      db.availability = db.availability.filter((a) => a.member_id !== id)
+      db.shifts = db.shifts.filter((s) => s.member_id !== id)
+      commit()
+    },
+
+    async listAvailability(shopId, from, to) { await delay(); return db.availability.filter((a) => a.shop_id === shopId && a.day >= from && a.day <= to) },
+    async listShifts(shopId, from, to) { await delay(); return db.shifts.filter((s) => s.shop_id === shopId && s.day >= from && s.day <= to) },
+    async createShift(shopId, input) {
+      const s: Shift = { id: uid(), shop_id: shopId, note: '', ...input }
+      db.shifts.push(s); commit(); return s
+    },
+    async updateShift(id, patch) { Object.assign(db.shifts.find((s) => s.id === id)!, patch); commit() },
+    async deleteShift(id) { db.shifts = db.shifts.filter((s) => s.id !== id); commit() },
+    async listPublished(shopId) { return db.publications.filter((p) => p.shop_id === shopId).map((p) => p.week_start) },
+    async setPublished(shopId, ws, on) {
+      db.publications = db.publications.filter((p) => !(p.shop_id === shopId && p.week_start === ws))
+      if (on) db.publications.push({ shop_id: shopId, week_start: ws })
+      commit()
+    },
+
+    async getPublicShop(code) {
+      await delay()
+      const s = shopByCode(code)
+      if (!s) return null
+      return { name: s.name, hours: s.hours, members: db.members.filter((m) => m.shop_id === s.id).map((m) => ({ name: m.name, claimed: !!m.user_id })) }
+    },
+    async getGuestAvailability(code, name, ws) {
+      const s = shopByCode(code)
+      const m = s && db.members.find((x) => x.shop_id === s.id && x.name.toLowerCase() === name.trim().toLowerCase())
+      if (!m || m.user_id) return []
+      return db.availability.filter((a) => a.member_id === m.id && a.day >= ws && a.day < addDays(ws, 7)).map((a) => ({ day: a.day, start: a.start_min, end: a.end_min, note: a.note }))
+    },
+    async submitAvailability(code, name, ws, entries) {
+      await delay()
+      const s = shopByCode(code)
+      if (!s) throw new Error('shop_not_found')
+      const u = me()
+      let m = u ? db.members.find((x) => x.shop_id === s.id && x.user_id === u.id) : undefined
+      if (!m) {
+        const nm = name.trim()
+        if (!nm) throw new Error('name_required')
+        m = db.members.find((x) => x.shop_id === s.id && x.name.toLowerCase() === nm.toLowerCase())
+        if (m && m.user_id && (!u || m.user_id !== u.id)) throw new Error('name_claimed')
+        if (!m) { m = { id: uid(), shop_id: s.id, name: nm.slice(0, 30), status: 'regular', user_id: null }; db.members.push(m) }
+      }
+      const end = addDays(ws, 7)
+      db.availability = db.availability.filter((a) => !(a.member_id === m!.id && a.day >= ws && a.day < end))
+      for (const e of entries) {
+        if (e.day >= ws && e.day < end && e.end > e.start) {
+          db.availability.push({ id: uid(), shop_id: s.id, member_id: m.id, day: e.day, start_min: e.start, end_min: e.end, note: e.note })
+        }
+      }
+      commit()
+    },
+    async claimMember(code, name) {
+      await delay()
+      const u = me(); if (!u) throw new Error('not_authenticated')
+      const s = shopByCode(code); if (!s) throw new Error('shop_not_found')
+      if (db.members.some((m) => m.shop_id === s.id && m.user_id === u.id)) return
+      const nm = name.trim(); if (!nm) throw new Error('name_required')
+      const m = db.members.find((x) => x.shop_id === s.id && x.name.toLowerCase() === nm.toLowerCase())
+      if (m) {
+        if (m.user_id) throw new Error('name_claimed')
+        m.user_id = u.id
+      } else db.members.push({ id: uid(), shop_id: s.id, name: nm, status: 'regular', user_id: u.id })
+      commit()
+    },
+    async getMembership() {
+      await delay()
+      const u = me(); const m = u && db.members.find((x) => x.user_id === u.id)
+      if (!m) return null
+      return { shop: strip(db.shops.find((s) => s.id === m.shop_id)!), member: m }
+    },
+    async listMyAvailability(memberId, from, to) {
+      return db.availability.filter((a) => a.member_id === memberId && a.day >= from && a.day <= to).map((a) => ({ day: a.day, start: a.start_min, end: a.end_min, note: a.note }))
+    },
+    async listMyShifts(memberId, from, to) {
+      await delay()
+      const m = db.members.find((x) => x.id === memberId)
+      const pub = new Set(db.publications.filter((p) => p.shop_id === m?.shop_id).map((p) => p.week_start))
+      return db.shifts
+        .filter((s) => s.member_id === memberId && s.day >= from && s.day <= to && pub.has(weekOf(s.day)))
+        .sort((a, b) => (a.day + String(a.start_min).padStart(4, '0')).localeCompare(b.day + String(b.start_min).padStart(4, '0')))
+    },
+  }
+}
+
+export type { AvailEntry }
