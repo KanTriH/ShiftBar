@@ -49,7 +49,7 @@ export default function ManagerLayout() {
   return (
     <Ctx.Provider value={{ shop, setShop, positions, members, reloadPositions, reloadMembers }}>
       <div className="min-h-[100dvh]">
-        <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur">
+        <header className="sticky top-0 z-30 print:hidden border-b border-line bg-bg/90 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-4 sm:px-6">
             <Link to="/"><Logo /></Link>
             <span className="hidden h-5 w-px bg-line sm:block" />
@@ -65,7 +65,7 @@ export default function ManagerLayout() {
             <Button variant="ghost" size="sm" onClick={async () => { await api.signOut(); nav('/') }}><SignOut size={16} /><span className="hidden sm:inline">退出</span></Button>
           </div>
         </header>
-        <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6"><Outlet /></main>
+        <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 print:max-w-none print:p-0"><Outlet /></main>
       </div>
     </Ctx.Provider>
   )

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CaretLeft, CaretRight, CheckCircle, PaperPlaneTilt } from '@phosphor-icons/react'
+import { CaretLeft, CaretRight, CheckCircle, FilePdf, PaperPlaneTilt } from '@phosphor-icons/react'
 import { Badge, Button, Empty, Skeleton, cn, useToast } from '../../components/ui'
 import { DayTimeline } from '../../components/DayTimeline'
 import { useManager } from './ManagerLayout'
@@ -106,6 +106,7 @@ export default function SchedulePage() {
         <div className="flex items-center gap-3">
           <span className="num hidden text-sm text-mute sm:inline">本周共 {fmtHours(weekMin)} 小时</span>
           {isPublished ? <Badge tone="good">已发布</Badge> : <Badge>草稿</Badge>}
+          <Link to={`/manager/print?week=${week}`}><Button size="sm"><FilePdf size={15} />导出 PDF</Button></Link>
           <Button variant={isPublished ? 'secondary' : 'primary'} size="sm" onClick={togglePublish}>
             {isPublished ? <>撤回发布</> : <><PaperPlaneTilt size={15} />发布本周</>}
           </Button>

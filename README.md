@@ -53,3 +53,17 @@ npm run dev
 - 班次不能跨午夜；营业时间最晚到 24:00。
 - 排班时间轴使用鼠标/触控笔拖拽，触屏手机上建议只用于查看。
 - 界面文案目前为简体中文，未做多语言。
+
+## 部署到公网（让其他设备也能打开）
+
+`localhost:5173` 只在你自己的电脑上有效。要让手机、其他电脑、员工访问，需要部署前端（Supabase 已经在云端，不用再部署）。以 Vercel 为例，Netlify / Cloudflare Pages 同理：
+
+1. 把代码推到 GitHub，在 [vercel.com](https://vercel.com) 用 GitHub 登录，**Add New > Project** 选择这个仓库。
+2. 框架选 Vite（会自动识别），构建命令 `npm run build`，输出目录 `dist`。
+3. 在 **Environment Variables** 里添加 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`（值和 `.env.local` 一样）。**漏填的话线上会变成演示模式。** 环境变量在构建时写入，改了之后要重新部署。
+4. 部署完成后得到类似 `https://xxx.vercel.app` 的地址。回到 Supabase：**Authentication > URL Configuration**，把 **Site URL** 改成这个地址（并把它加入 Redirect URLs），否则注册确认邮件里的链接还会指向 localhost。
+5. 之后员工用的报班链接就是 `https://xxx.vercel.app/s/店铺码`（"设置"页复制的链接会自动用当前域名）。
+
+`vercel.json` 和 `public/_redirects` 让 `/manager`、`/s/xxx` 这类前端路由刷新时不会 404。
+
+只是想在同一个 Wi-Fi 下临时用手机看一眼：运行 `npm run dev -- --host`，用终端里显示的 `Network` 地址（形如 `http://192.168.x.x:5173`）打开即可。

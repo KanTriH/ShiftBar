@@ -86,3 +86,8 @@ input[type="time"]::-webkit-calendar-picker-indicator { opacity: .5; }
   .press { transition: none; }
 }
 .thin-scroll { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+@page { size: A4; margin: 12mm; }
+@media print {
+  html, body { background: #fff !important; }
+}
