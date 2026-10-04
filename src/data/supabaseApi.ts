@@ -1,7 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Api } from './api'
-import type { AppUser, AvailEntry, Availability, Member, Position, Shift, Shop } from '../lib/types'
+import type { AppUser, AvailEntry, Availability, DailyTask, Location, Member, Position, Shift, Shop } from '../lib/types'
 import { POSITION_COLORS } from '../lib/types'
 
 const sb = supabase!
@@ -49,6 +49,16 @@ export function createSupabaseApi(): Api {
     },
     async updateShop(id, patch) { unwrap(await sb.from('shops').update(patch).eq('id', id)) },
 
+    async listLocations(shopId) {
+      return unwrap(await sb.from('locations').select('*').eq('shop_id', shopId).order('sort').order('name')) as Location[]
+    },
+    async createLocation(shopId, name) {
+      const { count } = await sb.from('locations').select('*', { count: 'exact', head: true }).eq('shop_id', shopId)
+      return unwrap(await sb.from('locations').insert({ shop_id: shopId, name, sort: count ?? 0 }).select().single()) as Location
+    },
+    async updateLocation(id, patch) { unwrap(await sb.from('locations').update(patch).eq('id', id)) },
+    async deleteLocation(id) { unwrap(await sb.from('locations').delete().eq('id', id)) },
+
     async listPositions(shopId) {
       return unwrap(await sb.from('positions').select('*').eq('shop_id', shopId).order('sort').order('name')) as Position[]
     },
@@ -79,6 +89,13 @@ export function createSupabaseApi(): Api {
     },
     async updateShift(id, patch) { unwrap(await sb.from('shifts').update(patch).eq('id', id)) },
     async deleteShift(id) { unwrap(await sb.from('shifts').delete().eq('id', id)) },
+    async listDailyTasks(shopId, from, to) {
+      return unwrap(await sb.from('daily_tasks').select('*').eq('shop_id', shopId).gte('day', from).lte('day', to)) as DailyTask[]
+    },
+    async setDailyTask(shopId, locationId, day, text) {
+      if (!text.trim()) unwrap(await sb.from('daily_tasks').delete().eq('location_id', locationId).eq('day', day))
+      else unwrap(await sb.from('daily_tasks').upsert({ shop_id: shopId, location_id: locationId, day, text }, { onConflict: 'location_id,day' }))
+    },
     async listPublished(shopId) {
       return (unwrap(await sb.from('publications').select('week_start').eq('shop_id', shopId)) as { week_start: string }[]).map((r) => r.week_start)
     },
@@ -105,7 +122,7 @@ export function createSupabaseApi(): Api {
     },
     async listMyAvailability(memberId, from, to) {
       const rows = unwrap(await sb.from('availability').select('*').eq('member_id', memberId).gte('day', from).lte('day', to)) as Availability[]
-      return rows.map((r) => ({ day: r.day, start: r.start_min, end: r.end_min, note: r.note }))
+      return rows.map((r) => ({ day: r.day, start: r.start_min, end: r.end_min, note: r.note, locations: r.location_ids ?? [] }))
     },
     async listMyShifts(memberId, from, to) {
       return unwrap(await sb.from('shifts').select('*').eq('member_id', memberId).gte('day', from).lte('day', to).order('day').order('start_min')) as Shift[]

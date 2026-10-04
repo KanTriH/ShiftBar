@@ -10,6 +10,7 @@ import SchedulePage from './pages/manager/SchedulePage'
 import AvailabilityBoard from './pages/manager/AvailabilityBoard'
 import StaffList from './pages/manager/StaffList'
 import Settings from './pages/manager/Settings'
+import ScheduleSettings from './pages/manager/ScheduleSettings'
 import PrintPage from './pages/manager/PrintPage'
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
               <Route path="availability" element={<AvailabilityBoard />} />
               <Route path="staff" element={<StaffList />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="settings/preferences" element={<ScheduleSettings />} />
               <Route path="print" element={<PrintPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

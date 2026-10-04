@@ -5,14 +5,16 @@ import { Button, Field, Input, Logo, Skeleton, cn, useToast } from '../../compon
 import { api } from '../../data'
 import { useAuth } from '../../auth/AuthContext'
 import { errMsg } from '../../lib/errors'
-import type { Member, Position, Shop } from '../../lib/types'
+import type { Location, Member, Position, Shop } from '../../lib/types'
 import { POSITION_PRESETS } from '../../lib/types'
 
 interface ManagerCtx {
   shop: Shop
   setShop: (s: Shop) => void
+  locations: Location[]
   positions: Position[]
   members: Member[]
+  reloadLocations: () => Promise<void>
   reloadPositions: () => Promise<void>
   reloadMembers: () => Promise<void>
 }
@@ -30,6 +32,7 @@ export default function ManagerLayout() {
   const { user, loading } = useAuth()
   const nav = useNavigate()
   const [shop, setShop] = useState<Shop | null | undefined>(undefined)
+  const [locations, setLocations] = useState<Location[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [members, setMembers] = useState<Member[]>([])
 
@@ -39,15 +42,16 @@ export default function ManagerLayout() {
     api.getOwnedShop().then(setShop).catch(() => setShop(null))
   }, [user, loading, nav])
 
+  const reloadLocations = useCallback(async () => { if (shop) setLocations(await api.listLocations(shop.id)) }, [shop])
   const reloadPositions = useCallback(async () => { if (shop) setPositions(await api.listPositions(shop.id)) }, [shop])
   const reloadMembers = useCallback(async () => { if (shop) setMembers(await api.listMembers(shop.id)) }, [shop])
-  useEffect(() => { reloadPositions(); reloadMembers() }, [reloadPositions, reloadMembers])
+  useEffect(() => { reloadLocations(); reloadPositions(); reloadMembers() }, [reloadLocations, reloadPositions, reloadMembers])
 
   if (shop === undefined) return <div className="mx-auto max-w-6xl p-6"><Skeleton className="h-10 w-56" /><Skeleton className="mt-6 h-80" /></div>
   if (shop === null) return <Onboarding onCreated={setShop} />
 
   return (
-    <Ctx.Provider value={{ shop, setShop, positions, members, reloadPositions, reloadMembers }}>
+    <Ctx.Provider value={{ shop, setShop, locations, positions, members, reloadLocations, reloadPositions, reloadMembers }}>
       <div className="min-h-[100dvh]">
         <header className="sticky top-0 z-30 print:hidden border-b border-line bg-bg/90 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-4 sm:px-6">

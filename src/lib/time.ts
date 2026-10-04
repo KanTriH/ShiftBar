@@ -5,8 +5,12 @@ export function toISO(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth() +
 export function fromISO(s: string) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d) }
 export function addDays(s: string, n: number) { const d = fromISO(s); d.setDate(d.getDate() + n); return toISO(d) }
 export const todayISO = () => toISO(new Date())
-/** 周一为一周起点 */
-export function weekStart(s: string) { const d = fromISO(s); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return toISO(d) }
+/** 一周的起始日：startDay 1 = 周一（默认），0 = 周日 */
+export function weekStart(s: string, startDay: 0 | 1 = 1) {
+  const d = fromISO(s)
+  d.setDate(d.getDate() - ((d.getDay() - startDay + 7) % 7))
+  return toISO(d)
+}
 export function weekdayIdx(s: string) { return (fromISO(s).getDay() + 6) % 7 }
 export function weekDays(ws: string) { return Array.from({ length: 7 }, (_, i) => addDays(ws, i)) }
 export function monthStart(s: string) { const d = fromISO(s); return toISO(new Date(d.getFullYear(), d.getMonth(), 1)) }

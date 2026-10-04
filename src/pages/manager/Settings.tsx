@@ -4,12 +4,13 @@ import { Button, Field, Input, cn, useToast } from '../../components/ui'
 import { useManager } from './ManagerLayout'
 import { api } from '../../data'
 import { errMsg } from '../../lib/errors'
-import type { Position, WeekHours } from '../../lib/types'
+import type { Location, Position, WeekHours } from '../../lib/types'
+import { SettingsTabs } from './ScheduleSettings'
 import { POSITION_COLORS } from '../../lib/types'
 import { DAY_LABELS, fmtMin, parseHM } from '../../lib/time'
 
 export default function Settings() {
-  const { shop, setShop, positions, reloadPositions } = useManager()
+  const { shop, setShop, locations, positions, reloadLocations, reloadPositions } = useManager()
   const toast = useToast()
   const link = `${window.location.origin}/s/${shop.code}`
 
@@ -23,7 +24,7 @@ export default function Settings() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-10">
-      <h1 className="text-xl font-semibold tracking-tight">设置</h1>
+      <SettingsTabs />
 
       <section className="flex flex-col gap-4">
         <h2 className="text-base font-semibold">员工报班链接</h2>
@@ -38,6 +39,17 @@ export default function Settings() {
       <section className="flex flex-col gap-4">
         <h2 className="text-base font-semibold">店铺信息</h2>
         <Field label="店铺名称"><Input defaultValue={shop.name} maxLength={60} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== shop.name && saveShop({ name: e.target.value.trim() })} /></Field>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div>
+          <h2 className="text-base font-semibold">门店</h2>
+          <p className="mt-1 text-sm text-mute">有多家门店、员工是同一批人的话，在这里添加。排班时按门店分别排，员工报班时可以选自己能去哪几家。只有一家门店时，这些选项不会出现。</p>
+        </div>
+        <ul className="divide-y divide-line rounded-panel border border-line bg-surface">
+          {locations.map((l) => <LocationRow key={l.id} l={l} canDelete={locations.length > 1} onChanged={reloadLocations} />)}
+        </ul>
+        <AddLocation shopId={shop.id} onAdded={reloadLocations} />
       </section>
 
       <section className="flex flex-col gap-3">
@@ -79,6 +91,39 @@ export default function Settings() {
         <AddPosition shopId={shop.id} used={positions.length} onAdded={reloadPositions} />
       </section>
     </div>
+  )
+}
+
+function LocationRow({ l, canDelete, onChanged }: { l: Location; canDelete: boolean; onChanged: () => Promise<void> }) {
+  const toast = useToast()
+  const rename = async (v: string) => { try { await api.updateLocation(l.id, { name: v }); await onChanged() } catch (e) { toast(errMsg(e)) } }
+  const remove = async () => {
+    if (!window.confirm(`删除门店「${l.name}」？这家门店已排的班次和当日任务会一起删除，无法恢复。`)) return
+    try { await api.deleteLocation(l.id); await onChanged() } catch (e) { toast(errMsg(e)) }
+  }
+  return (
+    <li className="flex items-center gap-3 px-4 py-2.5">
+      <input defaultValue={l.name} maxLength={60} aria-label="门店名称" onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== l.name && rename(e.target.value.trim())}
+        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        className="h-8 min-w-0 flex-1 rounded-control bg-transparent px-2 text-sm font-medium hover:bg-sunken focus:bg-sunken focus:outline-none" />
+      {canDelete && <button onClick={remove} aria-label={`删除 ${l.name}`} className="press rounded p-1.5 text-faint hover:bg-sunken hover:text-danger"><Trash size={16} /></button>}
+    </li>
+  )
+}
+
+function AddLocation({ shopId, onAdded }: { shopId: string; onAdded: () => Promise<void> }) {
+  const toast = useToast()
+  const [name, setName] = useState('')
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const n = name.trim(); if (!n) return
+    try { await api.createLocation(shopId, n); setName(''); await onAdded() } catch (err) { toast(errMsg(err)) }
+  }
+  return (
+    <form onSubmit={add} className="flex gap-2">
+      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="新门店名称，例如 北区店" maxLength={60} aria-label="新门店名称" />
+      <Button type="submit" disabled={!name.trim()}><Plus size={16} />添加</Button>
+    </form>
   )
 }
 

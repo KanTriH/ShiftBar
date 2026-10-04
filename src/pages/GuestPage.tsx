@@ -56,7 +56,7 @@ export default function GuestPage() {
 
           <div className="mt-6">
             <AvailabilityForm
-              hours={shop.hours}
+              hours={shop.hours} locations={shop.locations} weekStartDay={shop.week_start} region={shop.region}
               canSubmit={!!user || (!!name.trim() && !claimedHit)}
               reloadKey={user ? 'user' : debounced}
               load={(ws) => (user ? loadMine(ws) : debounced ? api.getGuestAvailability(code, debounced, ws) : Promise.resolve([]))}

@@ -1,53 +1,92 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, FilePdf } from '@phosphor-icons/react'
-import { Button, Skeleton, useToast } from '../../components/ui'
+import { Button, Segmented, Select, Skeleton, useToast } from '../../components/ui'
 import { useManager } from './ManagerLayout'
 import { api } from '../../data'
 import { errMsg } from '../../lib/errors'
-import type { Member, Position, Shift } from '../../lib/types'
-import { addDays, fmtDay, fmtMin, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
+import { holidayLabel, holidayOn } from '../../lib/holidays'
+import type { DailyTask, Location, Member, PdfStyle, Position, Shift, Shop } from '../../lib/types'
+import { addDays, fmtDay, fmtHours, fmtMin, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
 
 const CN_DAY = ['一', '二', '三', '四', '五', '六', '日']
+const EN_DAY = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 // 打印版固定使用浅色，不跟随系统深色模式，保证导出的 PDF 在任何电脑上一致
 const INK = '#111827'
 const LINE = '#9ca3af'
+const MUTED = '#6b7280'
+const DAY_BG = ['#e5e7eb', '#fde2d4', '#fef3c7', '#dcfce7', '#dbeafe', '#ede9fe', '#fce7f3'] // 与星期对应的淡色，时间条样式用
+
+interface Ctx {
+  shop: Shop
+  memberMap: Map<string, Member>
+  posMap: Map<string, Position>
+  posOrder: Map<string, number>
+}
 
 export default function PrintPage() {
-  const { shop, positions, members } = useManager()
+  const { shop, locations, positions, members } = useManager()
   const toast = useToast()
   const [params] = useSearchParams()
-  const week = weekStart(params.get('week') ?? todayISO())
+  const week = weekStart(params.get('week') ?? todayISO(), shop.week_start)
+  const [style, setStyle] = useState<PdfStyle>((params.get('style') as PdfStyle | null) ?? shop.pdf_style)
+  const [locSel, setLocSel] = useState(params.get('loc') ?? 'all')
   const [shifts, setShifts] = useState<Shift[] | null>(null)
+  const [tasks, setTasks] = useState<DailyTask[]>([])
   const days = useMemo(() => weekDays(week), [week])
 
   useEffect(() => {
-    api.listShifts(shop.id, week, addDays(week, 6)).then(setShifts).catch((e) => { toast(errMsg(e)); setShifts([]) })
+    const to = addDays(week, 6)
+    Promise.all([api.listShifts(shop.id, week, to), api.listDailyTasks(shop.id, week, to)])
+      .then(([s, t]) => { setShifts(s); setTasks(t) })
+      .catch((e) => { toast(errMsg(e)); setShifts([]) })
   }, [shop.id, week, toast])
 
-  const memberMap = useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
-  const posOrder = useMemo(() => new Map(positions.map((p, i) => [p.id, i])), [positions])
-  const posMap = useMemo(() => new Map(positions.map((p) => [p.id, p])), [positions])
+  const ctx: Ctx = useMemo(() => ({
+    shop,
+    memberMap: new Map(members.map((m) => [m.id, m])),
+    posMap: new Map(positions.map((p) => [p.id, p])),
+    posOrder: new Map(positions.map((p, i) => [p.id, i])),
+  }), [shop, members, positions])
+
+  const shown: Location[] = locSel === 'all' ? locations : locations.filter((l) => l.id === locSel)
+  const timeline = style === 'timeline'
 
   return (
     <div>
-      <div className="mx-auto mb-5 flex max-w-[820px] flex-wrap items-center justify-between gap-3 print:hidden">
+      {/* 时间条样式更宽，用横向 A4 */}
+      <style>{timeline ? '@page { size: A4 landscape; margin: 10mm; }' : '@page { size: A4; margin: 12mm; }'}</style>
+
+      <div className="mx-auto mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden" style={{ maxWidth: timeline ? 1100 : 820 }}>
         <Link to="/manager"><Button variant="ghost" size="sm"><ArrowLeft size={16} />返回排班</Button></Link>
-        <div className="flex items-center gap-3">
-          <p className="hidden text-xs text-mute sm:block">在打印窗口里，目标打印机选择"另存为 PDF"</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <Segmented size="sm" value={style} onChange={setStyle} options={[{ value: 'table', label: '表格' }, { value: 'timeline', label: '时间条' }]} />
+          {locations.length > 1 && (
+            <Select value={locSel} onChange={(e) => setLocSel(e.target.value)} style={{ width: 150 }} className="h-8 text-[13px]" aria-label="选择门店">
+              <option value="all">全部门店</option>
+              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </Select>
+          )}
           <Button variant="primary" onClick={() => window.print()} disabled={!shifts}><FilePdf size={16} />导出 PDF</Button>
         </div>
+        <p className="w-full text-right text-xs text-mute">点"导出 PDF"后，在打印窗口里把打印机选成"另存为 PDF"。</p>
       </div>
 
       {shifts === null ? (
         <div className="mx-auto max-w-[820px]"><Skeleton className="h-96" /></div>
       ) : (
-        <div className="mx-auto max-w-[820px] bg-white p-6 shadow-sm print:max-w-none print:p-0 print:shadow-none" style={{ color: INK, printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
-          <h1 className="mb-1 text-xl font-bold">{shop.name} 班表</h1>
-          <p className="mb-5 text-sm" style={{ color: '#4b5563' }}>{fmtDay(days[0])} - {fmtDay(days[6])}</p>
-          {days.map((day) => (
-            <DaySheet key={day} day={day} closed={!shop.hours[weekdayIdx(day)]} shifts={shifts.filter((s) => s.day === day)}
-              memberMap={memberMap} posMap={posMap} posOrder={posOrder} />
+        <div className="mx-auto" style={{ maxWidth: timeline ? 1100 : 820 }}>
+          {shown.map((l, i) => (
+            <div key={l.id} className={`bg-white p-6 shadow-sm print:p-0 print:shadow-none ${i > 0 ? 'mt-6 print:mt-0 print:break-before-page' : ''}`}
+              style={{ color: INK, printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
+              <h1 className="mb-1 text-xl font-bold">{locations.length > 1 && l.name !== shop.name ? `${shop.name} · ${l.name}` : shop.name} 班表</h1>
+              <p className="mb-5 text-sm" style={{ color: '#4b5563' }}>{fmtDay(days[0])} - {fmtDay(days[6])}</p>
+              {timeline
+                ? <TimelineSheet days={days} ctx={ctx} shifts={shifts.filter((s) => s.location_id === l.id)} tasks={tasks.filter((t) => t.location_id === l.id)} />
+                : days.map((day) => (
+                  <TableDay key={day} day={day} ctx={ctx} shifts={shifts.filter((s) => s.location_id === l.id && s.day === day)} task={tasks.find((t) => t.location_id === l.id && t.day === day)?.text} />
+                ))}
+            </div>
           ))}
         </div>
       )}
@@ -55,22 +94,30 @@ export default function PrintPage() {
   )
 }
 
-function DaySheet({ day, closed, shifts, memberMap, posMap, posOrder }: {
-  day: string; closed: boolean; shifts: Shift[]; memberMap: Map<string, Member>; posMap: Map<string, Position>; posOrder: Map<string, number>
-}) {
+/* ============================ 表格样式 ============================ */
+
+function sortShifts(list: Shift[], ctx: Ctx) {
+  return [...list].sort((a, b) => (ctx.posOrder.get(a.position_id ?? '') ?? 99) - (ctx.posOrder.get(b.position_id ?? '') ?? 99) || a.start_min - b.start_min)
+}
+const total = (list: Shift[]) => list.reduce((n, s) => n + s.end_min - s.start_min, 0)
+
+function TableDay({ day, ctx, shifts, task }: { day: string; ctx: Ctx; shifts: Shift[]; task?: string }) {
   const d = new Date(day + 'T00:00:00')
-  const sorted = [...shifts].sort((a, b) =>
-    (posOrder.get(a.position_id ?? '') ?? 99) - (posOrder.get(b.position_id ?? '') ?? 99) || a.start_min - b.start_min)
-  const regular = sorted.filter((s) => memberMap.get(s.member_id)?.status !== 'trial')
-  const trial = sorted.filter((s) => memberMap.get(s.member_id)?.status === 'trial')
+  const closed = !ctx.shop.hours[weekdayIdx(day)]
+  const sorted = sortShifts(shifts, ctx)
+  const regular = sorted.filter((s) => ctx.memberMap.get(s.member_id)?.status !== 'trial')
+  const trial = sorted.filter((s) => ctx.memberMap.get(s.member_id)?.status === 'trial')
+  const hol = holidayOn(day, ctx.shop.region)
 
   return (
     <section className="mb-6 break-inside-avoid">
-      <h2 className="px-3 py-1.5 text-lg font-bold" style={{ background: '#e5e7eb' }}>
-        星期{CN_DAY[weekdayIdx(day)]} <span className="num">{d.getMonth() + 1}/{d.getDate()}</span>
+      <h2 className="flex flex-wrap items-baseline gap-x-3 px-3 py-1.5 text-lg font-bold" style={{ background: '#e5e7eb' }}>
+        <span>星期{CN_DAY[weekdayIdx(day)]} <span className="num">{d.getMonth() + 1}/{d.getDate()}</span></span>
+        {hol && <span className="text-[13px] font-semibold" style={{ color: '#b45309' }}>法定假日 {holidayLabel(hol)}</span>}
+        {shifts.length > 0 && <span className="num ml-auto text-[13px] font-normal" style={{ color: '#4b5563' }}>共 {fmtHours(total(shifts))} 小时</span>}
       </h2>
-      {closed ? <p className="px-3 py-3 text-sm" style={{ color: '#6b7280' }}>休息</p>
-        : shifts.length === 0 ? <p className="px-3 py-3 text-sm" style={{ color: '#6b7280' }}>暂无排班</p>
+      {closed ? <p className="px-3 py-3 text-sm" style={{ color: MUTED }}>休息</p>
+        : shifts.length === 0 ? <p className="px-3 py-3 text-sm" style={{ color: MUTED }}>暂无排班</p>
         : (
           <table className="w-full border-collapse text-[13px]">
             <thead>
@@ -81,39 +128,124 @@ function DaySheet({ day, closed, shifts, memberMap, posMap, posOrder }: {
               </tr>
             </thead>
             <tbody>
-              <Rows list={regular} memberMap={memberMap} posMap={posMap} />
+              <Rows list={regular} ctx={ctx} />
               {trial.length > 0 && (
                 <>
                   <tr><td colSpan={5} className="px-2 py-1 text-center font-semibold" style={{ background: '#fde2d4', border: `1px solid ${LINE}` }}>Training 试工</td></tr>
-                  <Rows list={trial} memberMap={memberMap} posMap={posMap} />
+                  <Rows list={trial} ctx={ctx} />
                 </>
               )}
             </tbody>
           </table>
         )}
+      {task && (
+        <p className="whitespace-pre-line px-3 py-2 text-[13px]" style={{ background: '#fef3c7', border: `1px solid ${LINE}`, borderTop: 0 }}>
+          <strong>DAILY TASK 当日任务：</strong>{task}
+        </p>
+      )}
     </section>
   )
 }
 
-function Rows({ list, memberMap, posMap }: { list: Shift[]; memberMap: Map<string, Member>; posMap: Map<string, Position> }) {
+function Rows({ list, ctx }: { list: Shift[]; ctx: Ctx }) {
   const cell = { border: `1px solid ${LINE}` }
   return (
     <>
       {list.map((s, i) => {
-        const p = s.position_id ? posMap.get(s.position_id) : undefined
+        const p = s.position_id ? ctx.posMap.get(s.position_id) : undefined
         return (
           <tr key={s.id}>
             <td className="num px-2 py-1 text-center" style={cell}>{i + 1}</td>
-            <td className="px-2 py-1 text-center font-medium" style={cell}>{memberMap.get(s.member_id)?.name ?? '-'}</td>
+            <td className="px-2 py-1 text-center font-medium" style={cell}>{ctx.memberMap.get(s.member_id)?.name ?? '-'}</td>
             <td className="num px-2 py-1 text-center" style={cell}>{fmtMin(s.start_min)}</td>
             <td className="num px-2 py-1 text-center" style={cell}>{fmtMin(s.end_min)}</td>
             <td className="px-2 py-1 text-center" style={cell}>
               {p ? <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: p.color }} />{p.name}</span> : ''}
-              {s.note && <span className="ml-2 text-[11px]" style={{ color: '#6b7280' }}>{s.note}</span>}
+              {s.note && <span className="ml-2 text-[11px]" style={{ color: MUTED }}>{s.note}</span>}
             </td>
           </tr>
         )
       })}
     </>
+  )
+}
+
+/* ============================ 时间条样式 ============================ */
+
+function TimelineSheet({ days, ctx, shifts, tasks }: { days: string[]; ctx: Ctx; shifts: Shift[]; tasks: DailyTask[] }) {
+  // 横轴范围：这一周营业时间的最早开门到最晚关门，取整点
+  const opens = ctx.shop.hours.filter(Boolean) as { open: number; close: number }[]
+  const lo = Math.floor(Math.min(...opens.map((h) => h.open), ...shifts.map((s) => s.start_min), 24 * 60) / 60) * 60
+  const hi = Math.ceil(Math.max(...opens.map((h) => h.close), ...shifts.map((s) => s.end_min), 0) / 60) * 60
+  const span = Math.max(60, hi - lo)
+  const hourCount = span / 60
+  const ticks = Array.from({ length: hourCount + 1 }, (_, i) => lo / 60 + i)
+  const grid = `repeating-linear-gradient(to right, #d1d5db 0 1px, transparent 1px ${100 / hourCount}%)`
+  const cell = { border: `1px solid ${LINE}` }
+
+  return (
+    <table className="w-full border-collapse text-[12px]" style={{ tableLayout: 'fixed' }}>
+      <colgroup>
+        <col style={{ width: 96 }} /><col style={{ width: 92 }} /><col style={{ width: 62 }} /><col style={{ width: 150 }} /><col style={{ width: 96 }} /><col />
+      </colgroup>
+      <thead>
+        <tr style={{ background: '#111827', color: '#fff' }}>
+          {['日期 DATE', '姓名 NAME', '状态', '备注 NOTE', '时段 TIME SLOT'].map((h) => <th key={h} className="px-1 py-1 text-center font-semibold" style={cell}>{h}</th>)}
+          <th className="relative p-0" style={{ ...cell, height: 24 }}>
+            {ticks.map((t, i) => <span key={t} className="num absolute top-1 text-[11px]" style={{ left: `${(i / hourCount) * 100}%`, transform: i === 0 ? 'none' : i === hourCount ? 'translateX(-100%)' : 'translateX(-50%)' }}>{t % 24}</span>)}
+          </th>
+        </tr>
+      </thead>
+      {days.map((day) => {
+        const idx = weekdayIdx(day)
+        const list = [...shifts.filter((s) => s.day === day)].sort((a, b) => a.start_min - b.start_min || (ctx.posOrder.get(a.position_id ?? '') ?? 99) - (ctx.posOrder.get(b.position_id ?? '') ?? 99))
+        const closed = !ctx.shop.hours[idx]
+        const task = tasks.find((t) => t.day === day)?.text
+        const hol = holidayOn(day, ctx.shop.region)
+        const d = new Date(day + 'T00:00:00')
+        const rowCount = Math.max(1, list.length) + (task ? 1 : 0) + 1
+        return (
+          <tbody key={day} style={{ breakInside: 'avoid' }}>
+            {(list.length ? list : [null]).map((s, i) => {
+              const m = s && ctx.memberMap.get(s.member_id)
+              const p = s?.position_id ? ctx.posMap.get(s.position_id) : undefined
+              return (
+                <tr key={s?.id ?? 'empty'} style={{ height: 24 }}>
+                  {i === 0 && (
+                    <td rowSpan={rowCount} className="px-1 text-center align-middle" style={{ ...cell, background: DAY_BG[idx] }}>
+                      <p className="text-[13px] font-bold">{EN_DAY[idx]}</p>
+                      <p className="num">{d.getMonth() + 1}/{d.getDate()}</p>
+                      {hol && <p className="mt-1 text-[10px] font-semibold leading-tight" style={{ color: '#b45309' }}>{hol.zh}<br />{hol.en}</p>}
+                    </td>
+                  )}
+                  {s && m ? (
+                    <>
+                      <td className="truncate px-2 font-semibold" style={cell}>{m.name}</td>
+                      <td className="px-1 text-center" style={{ ...cell, background: m.status === 'trial' ? '#dbeafe' : undefined }}>{m.status === 'trial' ? '试工' : '正式'}</td>
+                      <td className="truncate px-2" style={cell} title={s.note}>{s.note}</td>
+                      <td className="num px-1 text-center" style={cell}>{fmtMin(s.start_min)}-{fmtMin(s.end_min)}</td>
+                      <td className="relative p-0" style={{ ...cell, backgroundImage: grid }}>
+                        <div className="absolute inset-y-[3px]" style={{ left: `${((s.start_min - lo) / span) * 100}%`, width: `${((s.end_min - s.start_min) / span) * 100}%`, background: p?.color ?? '#4b5563' }} title={p?.name} />
+                        {p && ((s.end_min - s.start_min) / span) > 0.1 && <span className="absolute inset-y-0 flex items-center px-1.5 text-[10px] font-semibold text-white" style={{ left: `${((s.start_min - lo) / span) * 100}%` }}>{p.name}</span>}
+                      </td>
+                    </>
+                  ) : (
+                    <td colSpan={5} className="px-2 text-center" style={{ ...cell, color: MUTED }}>{closed ? '休息' : '暂无排班'}</td>
+                  )}
+                </tr>
+              )
+            })}
+            {task && (
+              <tr><td colSpan={5} className="whitespace-pre-line px-2 py-1" style={{ ...cell, background: '#fef3c7' }}><strong>DAILY TASK 当日任务：</strong>{task}</td></tr>
+            )}
+            <tr style={{ height: 20 }}>
+              <td colSpan={3} className="px-2 text-right text-[11px]" style={{ ...cell, color: MUTED }}>合计 Total（小时）</td>
+              <td className="num px-1 text-center font-semibold" style={{ ...cell, background: '#fff7ed' }}>{fmtHours(total(list))}</td>
+              <td style={cell} />
+            </tr>
+          </tbody>
+        )
+      })}
+    </table>
   )
 }
