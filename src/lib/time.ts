@@ -21,7 +21,34 @@ export function weekDays(ws: string) { return Array.from({ length: 7 }, (_, i) =
 export function monthStart(s: string) { const d = fromISO(s); return toISO(new Date(d.getFullYear(), d.getMonth(), 1)) }
 export function monthEnd(s: string) { const d = fromISO(s); return toISO(new Date(d.getFullYear(), d.getMonth() + 1, 0)) }
 
-export function fmtMin(m: number) { return m >= 1440 ? '24:00' : `${pad(Math.floor(m / 60))}:${pad(m % 60)}` }
+/**
+ * 分钟数 -> "HH:MM"。班次可以跨午夜：1500 = 次日 01:00，所以超过 24 小时的部分按 24 取余。
+ * 恰好 1440 显示为 24:00（营业到午夜）。
+ */
+export function fmtMin(m: number) {
+  if (m === 1440) return '24:00'
+  return `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`
+}
+/** 给 <input type="time"> 用的值：它不接受 24:00，午夜写成 00:00 */
+export const inputTime = (m: number) => fmtMin(m % 1440)
+/** 这个时刻是不是已经在次日（超过 24:00） */
+export const isNextDay = (m: number) => m > 1440
+/**
+ * 解析"开始时间"输入：早于开门时间的时刻，说明在次日凌晨（营业日跨过了午夜），要加上 24 小时。
+ * 例：9:00 开门，输入 01:00 -> 1500。
+ */
+export function parseStartIn(v: string, open: number) {
+  const t = parseHM(v)
+  return t < open ? t + 1440 : t
+}
+/**
+ * 解析"结束时间"输入：不晚于开始时间，说明已经过了午夜，加上 24 小时。
+ * 例：17:45 - 01:00 -> 1500；17:00 - 00:00 -> 1440。
+ */
+export function parseEndAfter(v: string, start: number) {
+  const t = parseHM(v)
+  return t <= start ? t + 1440 : t
+}
 export function parseHM(v: string, asEnd = false) {
   const [h, m] = v.split(':').map(Number)
   const t = h * 60 + m
