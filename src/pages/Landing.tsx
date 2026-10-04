@@ -9,21 +9,20 @@ import { LangSwitch } from '../i18n'
 import { translate as t } from '../i18n/core'
 
 const ROWS = [
-  { name: '林晓', avail: [0, 0.62], shifts: [{ a: 0, b: 0.5, c: '#c9532f', t: 'cashier' }] },
-  { name: '周屿', avail: [0.3, 1], shifts: [{ a: 0.42, b: 1, c: '#3a64c8', t: 'bar' }] },
-  { name: '陈嘉禾', avail: [0.15, 0.8], shifts: [{ a: 0.15, b: 0.55, c: '#1f7a6d', t: 'prep' }] },
-  { name: '吴桐', avail: [0, 0.4], shifts: [{ a: 0, b: 0.38, c: '#1f7a6d', t: 'prep' }] },
+  { id: 1, avail: [0, 0.62], shifts: [{ a: 0, b: 0.5, c: '#c9532f', t: 'cashier' }] },
+  { id: 2, avail: [0.3, 1], shifts: [{ a: 0.42, b: 1, c: '#3a64c8', t: 'bar' }] },
+  { id: 3, avail: [0.15, 0.8], shifts: [{ a: 0.15, b: 0.55, c: '#1f7a6d', t: 'prep' }] },
+  { id: 4, avail: [0, 0.4], shifts: [{ a: 0, b: 0.38, c: '#1f7a6d', t: 'prep' }] },
 ]
 
 /** 用与排班页相同的视觉语言拼出的迷你预览（半透明绿 = 员工可用，实色 = 已排班） */
 function TimelinePreview() {
   return (
     <div className="rounded-panel border border-line bg-surface p-4 shadow-[0_18px_50px_-24px_color-mix(in_srgb,var(--accent)_45%,transparent)]" aria-hidden>
-      <div className="mb-3 flex justify-between px-[72px] text-[11px] text-faint num"><span>09:00</span><span>13:00</span><span>17:00</span><span>21:00</span></div>
+      <div className="mb-3 flex justify-between text-[11px] text-faint num"><span>09:00</span><span>13:00</span><span>17:00</span><span>21:00</span></div>
       <div className="flex flex-col gap-2">
         {ROWS.map((r) => (
-          <div key={r.name} className="flex items-center gap-3">
-            <span className="w-[60px] shrink-0 text-[13px] font-medium">{t(r.name)}</span>
+          <div key={r.id} className="flex items-center">
             <div className="relative h-9 flex-1 rounded-control bg-sunken">
               <div className="absolute inset-y-0 rounded-control bg-avail/25" style={{ left: `${r.avail[0] * 100}%`, width: `${(r.avail[1] - r.avail[0]) * 100}%` }} />
               {r.shifts.map((s, i) => (

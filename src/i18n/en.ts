@@ -50,10 +50,6 @@ export const EN: Record<string, string> = {
   '奶茶 / 咖啡店': "Tea / coffee shop",
   '餐厅': "Restaurant",
   '零售店': "Retail store",
-  '林晓': "Lin Xiao",
-  '周屿': "Zhou Yu",
-  '陈嘉禾': "Chen Jiahe",
-  '吴桐': "Wu Tong",
 
   // ---- 错误 / 提示 ----
   '找不到这家店铺，请检查店铺码': "Shop not found, please check the shop code",
