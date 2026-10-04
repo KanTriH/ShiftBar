@@ -29,7 +29,7 @@ export default function Auth() {
   const { user } = useAuth()
   const next = params.get('next')
   const [mode, setMode] = useState<'login' | 'signup'>(params.get('mode') === 'signup' ? 'signup' : 'login')
-  const [role, setRole] = useState<Role>(params.get('role') === 'staff' ? 'staff' : 'manager')
+  const [role, setRole] = useState<Role>(params.get('role') === 'manager' ? 'manager' : 'staff')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)

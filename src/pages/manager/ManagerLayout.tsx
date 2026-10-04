@@ -105,6 +105,9 @@ function Onboarding({ onCreated }: { onCreated: (s: Shop) => void }) {
           </fieldset>
           <Button type="submit" variant="primary" className="h-11" disabled={busy || !name.trim()}>{busy ? '创建中...' : '创建店铺'}</Button>
         </form>
+        <p className="mt-6 text-sm text-mute">
+          你是员工，不是店长？<Link to="/me" className="font-medium text-accent">用店铺码绑定店铺</Link>
+        </p>
       </div>
     </div>
   )
