@@ -1,4 +1,9 @@
+import { getLang, translate } from '../i18n/core'
+
+/** 中文原文；显示时用 dayLabel(i) 取当前语言 */
 export const DAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+export const dayLabel = (i: number) => translate(DAY_LABELS[i])
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 export const pad = (n: number) => String(n).padStart(2, '0')
 
 export function toISO(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
@@ -23,7 +28,12 @@ export function parseHM(v: string, asEnd = false) {
   return asEnd && t === 0 ? 1440 : t
 }
 export function fmtHours(min: number) { const h = min / 60; return Number.isInteger(h) ? String(h) : h.toFixed(1) }
-export function fmtDay(s: string) { const d = fromISO(s); return `${d.getMonth() + 1}月${d.getDate()}日` }
+export function fmtDay(s: string) {
+  const d = fromISO(s)
+  return getLang() === 'zh' ? `${d.getMonth() + 1}月${d.getDate()}日` : `${MONTHS_EN[d.getMonth()]} ${d.getDate()}`
+}
+/** 9/28 这种不分语言的短日期 */
+export function fmtMD(s: string) { const d = fromISO(s); return `${d.getMonth() + 1}/${d.getDate()}` }
 export function fmtRangeShort(a: string, b: string) { return `${fmtDay(a)} - ${fmtDay(b)}` }
 export const snap = (m: number, step = 15) => Math.round(m / step) * step
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))

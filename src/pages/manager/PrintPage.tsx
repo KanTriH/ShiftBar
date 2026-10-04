@@ -6,11 +6,13 @@ import { useManager } from './ManagerLayout'
 import { api } from '../../data'
 import { errMsg } from '../../lib/errors'
 import { holidayLabel, holidayOn } from '../../lib/holidays'
+import { getLang, translate as tr } from '../../i18n/core'
 import type { DailyTask, Location, Member, PdfStyle, Position, Shift, Shop } from '../../lib/types'
 import { addDays, fmtDay, fmtHours, fmtMin, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
 
 const CN_DAY = ['一', '二', '三', '四', '五', '六', '日']
 const EN_DAY = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const weekdayName = (i: number) => (getLang() === 'zh' ? `星期${CN_DAY[i]}` : EN_DAY[i])
 // 打印版固定使用浅色，不跟随系统深色模式，保证导出的 PDF 在任何电脑上一致
 const INK = '#111827'
 const LINE = '#9ca3af'
@@ -58,18 +60,18 @@ export default function PrintPage() {
       <style>{timeline ? '@page { size: A4 landscape; margin: 10mm; }' : '@page { size: A4; margin: 12mm; }'}</style>
 
       <div className="mx-auto mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden" style={{ maxWidth: timeline ? 1100 : 820 }}>
-        <Link to="/manager"><Button variant="ghost" size="sm"><ArrowLeft size={16} />返回排班</Button></Link>
+        <Link to="/manager"><Button variant="ghost" size="sm"><ArrowLeft size={16} />{tr('返回排班')}</Button></Link>
         <div className="flex flex-wrap items-center gap-3">
-          <Segmented size="sm" value={style} onChange={setStyle} options={[{ value: 'table', label: '表格' }, { value: 'timeline', label: '时间条' }]} />
+          <Segmented size="sm" value={style} onChange={setStyle} options={[{ value: 'table', label: tr('表格') }, { value: 'timeline', label: tr('时间条') }]} />
           {locations.length > 1 && (
-            <Select value={locSel} onChange={(e) => setLocSel(e.target.value)} style={{ width: 150 }} className="h-8 text-[13px]" aria-label="选择门店">
-              <option value="all">全部门店</option>
+            <Select value={locSel} onChange={(e) => setLocSel(e.target.value)} style={{ width: 150 }} className="h-8 text-[13px]" aria-label={tr('选择门店')}>
+              <option value="all">{tr('全部门店')}</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>
           )}
-          <Button variant="primary" onClick={() => window.print()} disabled={!shifts}><FilePdf size={16} />导出 PDF</Button>
+          <Button variant="primary" onClick={() => window.print()} disabled={!shifts}><FilePdf size={16} />{tr('导出 PDF')}</Button>
         </div>
-        <p className="w-full text-right text-xs text-mute">点"导出 PDF"后，在打印窗口里把打印机选成"另存为 PDF"。</p>
+        <p className="w-full text-right text-xs text-mute">{tr('点"导出 PDF"后，在打印窗口里把打印机选成"另存为 PDF"。')}</p>
       </div>
 
       {shifts === null ? (
@@ -79,12 +81,12 @@ export default function PrintPage() {
           {shown.map((l, i) => (
             <div key={l.id} className={`bg-white p-6 shadow-sm print:p-0 print:shadow-none ${i > 0 ? 'mt-6 print:mt-0 print:break-before-page' : ''}`}
               style={{ color: INK, printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}>
-              <h1 className="mb-1 text-xl font-bold">{locations.length > 1 && l.name !== shop.name ? `${shop.name} · ${l.name}` : shop.name} 班表</h1>
+              <h1 className="mb-1 text-xl font-bold">{locations.length > 1 && l.name !== shop.name ? `${shop.name} · ${l.name}` : shop.name} {tr('班表')}</h1>
               <p className="mb-5 text-sm" style={{ color: '#4b5563' }}>{fmtDay(days[0])} - {fmtDay(days[6])}</p>
               {timeline
-                ? <TimelineSheet days={days} ctx={ctx} shifts={shifts.filter((s) => s.location_id === l.id)} tasks={tasks.filter((t) => t.location_id === l.id)} />
+                ? <TimelineSheet days={days} ctx={ctx} shifts={shifts.filter((s) => s.location_id === l.id)} tasks={tasks.filter((k) => k.location_id === l.id)} />
                 : days.map((day) => (
-                  <TableDay key={day} day={day} ctx={ctx} shifts={shifts.filter((s) => s.location_id === l.id && s.day === day)} task={tasks.find((t) => t.location_id === l.id && t.day === day)?.text} />
+                  <TableDay key={day} day={day} ctx={ctx} shifts={shifts.filter((s) => s.location_id === l.id && s.day === day)} task={tasks.find((k) => k.location_id === l.id && k.day === day)?.text} />
                 ))}
             </div>
           ))}
@@ -112,18 +114,18 @@ function TableDay({ day, ctx, shifts, task }: { day: string; ctx: Ctx; shifts: S
   return (
     <section className="mb-6 break-inside-avoid">
       <h2 className="flex flex-wrap items-baseline gap-x-3 px-3 py-1.5 text-lg font-bold" style={{ background: '#e5e7eb' }}>
-        <span>星期{CN_DAY[weekdayIdx(day)]} <span className="num">{d.getMonth() + 1}/{d.getDate()}</span></span>
-        {hol && <span className="text-[13px] font-semibold" style={{ color: '#b45309' }}>法定假日 {holidayLabel(hol)}</span>}
-        {shifts.length > 0 && <span className="num ml-auto text-[13px] font-normal" style={{ color: '#4b5563' }}>共 {fmtHours(total(shifts))} 小时</span>}
+        <span>{weekdayName(weekdayIdx(day))} <span className="num">{d.getMonth() + 1}/{d.getDate()}</span></span>
+        {hol && <span className="text-[13px] font-semibold" style={{ color: '#b45309' }}>{tr('法定假日')} {holidayLabel(hol)}</span>}
+        {shifts.length > 0 && <span className="num ml-auto text-[13px] font-normal" style={{ color: '#4b5563' }}>{tr('共 {h} 小时', { h: fmtHours(total(shifts)) })}</span>}
       </h2>
-      {closed ? <p className="px-3 py-3 text-sm" style={{ color: MUTED }}>休息</p>
-        : shifts.length === 0 ? <p className="px-3 py-3 text-sm" style={{ color: MUTED }}>暂无排班</p>
+      {closed ? <p className="px-3 py-3 text-sm" style={{ color: MUTED }}>{tr('休息')}</p>
+        : shifts.length === 0 ? <p className="px-3 py-3 text-sm" style={{ color: MUTED }}>{tr('暂无排班')}</p>
         : (
           <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr style={{ background: '#f3f4f6' }}>
                 {['序号 NO.', '姓名 Name', '上班 Start', '下班 End', '岗位 Positions'].map((h, i) => (
-                  <th key={h} className="px-2 py-1 text-center font-semibold" style={{ border: `1px solid ${LINE}`, width: i === 0 ? '12%' : undefined }}>{h}</th>
+                  <th key={h} className="px-2 py-1 text-center font-semibold" style={{ border: `1px solid ${LINE}`, width: i === 0 ? '12%' : undefined }}>{tr(h)}</th>
                 ))}
               </tr>
             </thead>
@@ -131,7 +133,7 @@ function TableDay({ day, ctx, shifts, task }: { day: string; ctx: Ctx; shifts: S
               <Rows list={regular} ctx={ctx} />
               {trial.length > 0 && (
                 <>
-                  <tr><td colSpan={5} className="px-2 py-1 text-center font-semibold" style={{ background: '#fde2d4', border: `1px solid ${LINE}` }}>Training 试工</td></tr>
+                  <tr><td colSpan={5} className="px-2 py-1 text-center font-semibold" style={{ background: '#fde2d4', border: `1px solid ${LINE}` }}>{tr('Training 试工')}</td></tr>
                   <Rows list={trial} ctx={ctx} />
                 </>
               )}
@@ -140,7 +142,7 @@ function TableDay({ day, ctx, shifts, task }: { day: string; ctx: Ctx; shifts: S
         )}
       {task && (
         <p className="whitespace-pre-line px-3 py-2 text-[13px]" style={{ background: '#fef3c7', border: `1px solid ${LINE}`, borderTop: 0 }}>
-          <strong>DAILY TASK 当日任务：</strong>{task}
+          <strong>{tr('DAILY TASK 当日任务：')}</strong>{task}
         </p>
       )}
     </section>
@@ -190,9 +192,9 @@ function TimelineSheet({ days, ctx, shifts, tasks }: { days: string[]; ctx: Ctx;
       </colgroup>
       <thead>
         <tr style={{ background: '#111827', color: '#fff' }}>
-          {['日期 DATE', '姓名 NAME', '状态', '备注 NOTE', '时段 TIME SLOT'].map((h) => <th key={h} className="px-1 py-1 text-center font-semibold" style={cell}>{h}</th>)}
+          {['日期 DATE', '姓名 NAME', '状态', '备注 NOTE', '时段 TIME SLOT'].map((h) => <th key={h} className="px-1 py-1 text-center font-semibold" style={cell}>{tr(h)}</th>)}
           <th className="relative p-0" style={{ ...cell, height: 24 }}>
-            {ticks.map((t, i) => <span key={t} className="num absolute top-1 text-[11px]" style={{ left: `${(i / hourCount) * 100}%`, transform: i === 0 ? 'none' : i === hourCount ? 'translateX(-100%)' : 'translateX(-50%)' }}>{t % 24}</span>)}
+            {ticks.map((h, i) => <span key={h} className="num absolute top-1 text-[11px]" style={{ left: `${(i / hourCount) * 100}%`, transform: i === 0 ? 'none' : i === hourCount ? 'translateX(-100%)' : 'translateX(-50%)' }}>{h % 24}</span>)}
           </th>
         </tr>
       </thead>
@@ -213,15 +215,15 @@ function TimelineSheet({ days, ctx, shifts, tasks }: { days: string[]; ctx: Ctx;
                 <tr key={s?.id ?? 'empty'} style={{ height: 24 }}>
                   {i === 0 && (
                     <td rowSpan={rowCount} className="px-1 text-center align-middle" style={{ ...cell, background: DAY_BG[idx] }}>
-                      <p className="text-[13px] font-bold">{EN_DAY[idx]}</p>
+                      <p className="text-[13px] font-bold">{weekdayName(idx)}</p>
                       <p className="num">{d.getMonth() + 1}/{d.getDate()}</p>
-                      {hol && <p className="mt-1 text-[10px] font-semibold leading-tight" style={{ color: '#b45309' }}>{hol.zh}<br />{hol.en}</p>}
+                      {hol && <p className="mt-1 text-[10px] font-semibold leading-tight" style={{ color: '#b45309' }}>{getLang() === 'zh' ? <>{hol.zh}<br />{hol.en}</> : hol.en}</p>}
                     </td>
                   )}
                   {s && m ? (
                     <>
                       <td className="truncate px-2 font-semibold" style={cell}>{m.name}</td>
-                      <td className="px-1 text-center" style={{ ...cell, background: m.status === 'trial' ? '#dbeafe' : undefined }}>{m.status === 'trial' ? '试工' : '正式'}</td>
+                      <td className="px-1 text-center" style={{ ...cell, background: m.status === 'trial' ? '#dbeafe' : undefined }}>{m.status === 'trial' ? tr('试工') : tr('正式')}</td>
                       <td className="truncate px-2" style={cell} title={s.note}>{s.note}</td>
                       <td className="num px-1 text-center" style={cell}>{fmtMin(s.start_min)}-{fmtMin(s.end_min)}</td>
                       <td className="relative p-0" style={{ ...cell, backgroundImage: grid }}>
@@ -230,16 +232,16 @@ function TimelineSheet({ days, ctx, shifts, tasks }: { days: string[]; ctx: Ctx;
                       </td>
                     </>
                   ) : (
-                    <td colSpan={5} className="px-2 text-center" style={{ ...cell, color: MUTED }}>{closed ? '休息' : '暂无排班'}</td>
+                    <td colSpan={5} className="px-2 text-center" style={{ ...cell, color: MUTED }}>{closed ? tr('休息') : tr('暂无排班')}</td>
                   )}
                 </tr>
               )
             })}
             {task && (
-              <tr><td colSpan={5} className="whitespace-pre-line px-2 py-1" style={{ ...cell, background: '#fef3c7' }}><strong>DAILY TASK 当日任务：</strong>{task}</td></tr>
+              <tr><td colSpan={5} className="whitespace-pre-line px-2 py-1" style={{ ...cell, background: '#fef3c7' }}><strong>{tr('DAILY TASK 当日任务：')}</strong>{task}</td></tr>
             )}
             <tr style={{ height: 20 }}>
-              <td colSpan={3} className="px-2 text-right text-[11px]" style={{ ...cell, color: MUTED }}>合计 Total（小时）</td>
+              <td colSpan={3} className="px-2 text-right text-[11px]" style={{ ...cell, color: MUTED }}>{tr('合计 Total（小时）')}</td>
               <td className="num px-1 text-center font-semibold" style={{ ...cell, background: '#fff7ed' }}>{fmtHours(total(list))}</td>
               <td style={cell} />
             </tr>

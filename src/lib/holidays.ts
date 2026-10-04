@@ -1,16 +1,19 @@
 // 加拿大法定假日（按日期规则计算，不依赖网络）。
 // 仅作排班提醒：各省的法定假日、遇周末顺延和假日工资规定以官方公告为准。
 
+import { getLang } from '../i18n/core'
+
 export interface Holiday { en: string; zh: string }
-export const REGIONS: { value: string; label: string }[] = [
-  { value: 'CA', label: '加拿大（联邦通用）' },
-  { value: 'ON', label: '安大略 Ontario' },
-  { value: 'BC', label: '不列颠哥伦比亚 British Columbia' },
-  { value: 'AB', label: '艾伯塔 Alberta' },
-  { value: 'SK', label: '萨斯喀彻温 Saskatchewan' },
-  { value: 'QC', label: '魁北克 Quebec' },
-  { value: 'NONE', label: '不显示假日提醒' },
+export const REGIONS: { value: string; zh: string; en: string }[] = [
+  { value: 'CA', zh: '加拿大（联邦通用）', en: 'Canada (federal)' },
+  { value: 'ON', zh: '安大略 Ontario', en: 'Ontario' },
+  { value: 'BC', zh: '不列颠哥伦比亚 British Columbia', en: 'British Columbia' },
+  { value: 'AB', zh: '艾伯塔 Alberta', en: 'Alberta' },
+  { value: 'SK', zh: '萨斯喀彻温 Saskatchewan', en: 'Saskatchewan' },
+  { value: 'QC', zh: '魁北克 Quebec', en: 'Quebec' },
+  { value: 'NONE', zh: '不显示假日提醒', en: 'No holiday reminders' },
 ]
+export const regionLabel = (r: { zh: string; en: string }) => (getLang() === 'zh' ? r.zh : r.en)
 
 const NAMES = {
   newYear: { en: "New Year's Day", zh: '元旦' },
@@ -102,4 +105,7 @@ export function holidayOn(day: string, region: string): Holiday | null {
   if (!region || region === 'NONE') return null
   return holidaysOf(Number(day.slice(0, 4)), region).get(day) ?? null
 }
-export const holidayLabel = (h: Holiday) => `${h.zh} ${h.en}`
+/** 中文界面显示「中文 英文」，英文界面只显示英文 */
+export const holidayLabel = (h: Holiday) => (getLang() === 'zh' ? `${h.zh} ${h.en}` : h.en)
+/** 只取当前语言的名字 */
+export const holidayName = (h: Holiday) => (getLang() === 'zh' ? h.zh : h.en)

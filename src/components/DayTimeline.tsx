@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Trash, WarningCircle, X } from '@phosphor-icons/react'
 import { Badge, Button, Input, cn } from './ui'
 import type { Availability, DayHours, Member, Position, Shift, ShiftInput } from '../lib/types'
+import { translate as tr } from '../i18n/core'
 import { clamp, covers, fmtHours, fmtMin, mergeIntervals, parseHM, snap } from '../lib/time'
 
 const NAME_W = 168
@@ -159,14 +160,14 @@ export function DayTimeline(props: Props) {
     const out = new Map<string, string>()
     for (const s of view) {
       const msgs: string[] = []
-      if (view.some((o) => o.id !== s.id && o.member_id === s.member_id && o.start_min < s.end_min && o.end_min > s.start_min)) msgs.push('和同一个人的其他班次时间重叠')
+      if (view.some((o) => o.id !== s.id && o.member_id === s.member_id && o.start_min < s.end_min && o.end_min > s.start_min)) msgs.push(tr('和同一个人的其他班次时间重叠'))
       const clash = otherShifts.find((o) => o.member_id === s.member_id && o.start_min < s.end_min && o.end_min > s.start_min)
-      if (clash) msgs.push(`同一时间已在「${locationNames.get(clash.location_id) ?? '其他门店'}」排班`)
+      if (clash) msgs.push(tr('同一时间已在「{loc}」排班', { loc: locationNames.get(clash.location_id) ?? tr('其他门店') }))
       if (submitted.has(s.member_id)) {
         const merged = mergeIntervals((availByMember.get(s.member_id) ?? []).map((a) => [a.start_min, a.end_min]))
-        if (!covers(merged, s.start_min, s.end_min)) msgs.push('超出该员工报的可用时间')
+        if (!covers(merged, s.start_min, s.end_min)) msgs.push(tr('超出该员工报的可用时间'))
       }
-      if (msgs.length) out.set(s.id, msgs.join('；'))
+      if (msgs.length) out.set(s.id, msgs.join(tr('；')))
     }
     return out
   }, [view, otherShifts, locationNames, availByMember, submitted])
@@ -201,14 +202,14 @@ export function DayTimeline(props: Props) {
               <div key={m.id} className="flex flex-col justify-center border-b border-line px-3" style={{ height: ROW_H }}>
                 <div className="flex items-center gap-1.5">
                   <span className="truncate text-sm font-medium">{m.name}</span>
-                  {m.status === 'trial' && <Badge tone="warn">试工</Badge>}
+                  {m.status === 'trial' && <Badge tone="warn">{tr('试工')}</Badge>}
                 </div>
                 <span className="num text-[11px] text-mute">
-                  {submitted.has(m.id) ? `今日 ${fmtHours(dayMin(m.id))}h` : <span className="text-faint">未报班</span>}
+                  {submitted.has(m.id) ? tr('当天 {h}h', { h: fmtHours(dayMin(m.id)) }) : <span className="text-faint">{tr('未报班')}</span>}
                 </span>
               </div>
             ))}
-            <div className="flex items-center px-3 text-xs font-medium text-mute" style={{ height: COVER_H }}>人手</div>
+            <div className="flex items-center px-3 text-xs font-medium text-mute" style={{ height: COVER_H }}>{tr('人手')}</div>
           </div>
 
           {/* 时间轴 */}
@@ -235,11 +236,11 @@ export function DayTimeline(props: Props) {
                 const w = (o.end_min - o.start_min) * px
                 return (
                   <div key={o.id} className="pointer-events-none absolute flex flex-col justify-center overflow-hidden rounded-control border border-line px-2 text-mute"
-                    title={`在「${locationNames.get(o.location_id) ?? '其他门店'}」 ${fmtMin(o.start_min)} - ${fmtMin(o.end_min)}`}
+                    title={tr('在「{loc}」 {a} - {b}', { loc: locationNames.get(o.location_id) ?? tr('其他门店'), a: fmtMin(o.start_min), b: fmtMin(o.end_min) })}
                     style={{ top: i * ROW_H + 6, height: ROW_H - 12, left: left(o.start_min), width: w, background: 'repeating-linear-gradient(135deg, var(--sunken) 0 6px, var(--line) 6px 12px)' }}>
                     {w >= 56 && (
                       <>
-                        <span className="truncate text-[12px] font-semibold leading-tight">{locationNames.get(o.location_id) ?? '其他门店'}</span>
+                        <span className="truncate text-[12px] font-semibold leading-tight">{locationNames.get(o.location_id) ?? tr('其他门店')}</span>
                         <span className="num truncate text-[11px] leading-tight">{fmtMin(o.start_min)}-{fmtMin(o.end_min)}</span>
                       </>
                     )}
@@ -258,7 +259,7 @@ export function DayTimeline(props: Props) {
                     key={s.id} data-shift
                     onPointerDown={(e) => onShiftDown(e, s, 'move')}
                     onContextMenu={(e) => { e.preventDefault(); props.onDelete(shifts.find((x) => x.id === s.id) ?? s) }}
-                    title={bad ? `注意：${bad}` : `${fmtMin(s.start_min)} - ${fmtMin(s.end_min)}${s.note ? `\n${s.note}` : ''}`}
+                    title={bad ? tr('注意：{msg}', { msg: bad }) : `${fmtMin(s.start_min)} - ${fmtMin(s.end_min)}${s.note ? `\n${s.note}` : ''}`}
                     className={cn('absolute flex cursor-grab select-none flex-col justify-center overflow-hidden rounded-control px-2 text-white shadow-sm', bad ? 'ring-2 ring-danger ring-offset-1 ring-offset-surface' : '', active && 'z-10 cursor-grabbing opacity-90 shadow-lg')}
                     style={{ top: i * ROW_H + 6, height: ROW_H - 12, left: left(s.start_min), width: w, background: p?.color ?? NO_POS_COLOR, touchAction: 'none', transition: active ? 'none' : undefined }}
                   >
@@ -268,7 +269,7 @@ export function DayTimeline(props: Props) {
                       <>
                         <span className="flex items-center gap-1 truncate text-[12px] font-semibold leading-tight">
                           {bad && <WarningCircle size={13} weight="fill" className="shrink-0" />}
-                          {p?.name ?? '未指定岗位'}
+                          {p?.name ?? tr('未指定岗位')}
                         </span>
                         <span className="num truncate text-[11px] leading-tight opacity-90">{fmtMin(s.start_min)}-{fmtMin(s.end_min)}</span>
                       </>
@@ -291,7 +292,7 @@ export function DayTimeline(props: Props) {
             {/* 各时段人手：按岗位堆叠 */}
             <div className="relative flex items-end border-t border-line" style={{ height: COVER_H, backgroundImage: gridBg }}>
               {coverage.map((c) => (
-                <div key={c.t} className="flex flex-col-reverse justify-start px-px" style={{ width: 30 * px }} title={`${fmtMin(c.t)} 共 ${c.total} 人`}>
+                <div key={c.t} className="flex flex-col-reverse justify-start px-px" style={{ width: 30 * px }} title={tr('{time} 共 {n} 人', { time: fmtMin(c.t), n: c.total })}>
                   {[...positions.map((p) => [p.id, p.color] as const), ['_', NO_POS_COLOR] as const].map(([id, color]) => {
                     const n = c.by.get(id) ?? 0
                     return n ? <div key={id} className="w-full first:rounded-b-[2px] last:rounded-t-[2px]" style={{ height: (n / maxCover) * (COVER_H - 22), background: color, opacity: 0.85 }} /> : null
@@ -305,10 +306,10 @@ export function DayTimeline(props: Props) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-mute">
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm bg-avail/25" />员工可用时间</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm bg-accent ring-2 ring-danger ring-offset-1 ring-offset-bg" />超出可用时间或时间重叠</span>
-        {otherShifts.length > 0 && <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm border border-line" style={{ background: 'repeating-linear-gradient(135deg, var(--sunken) 0 3px, var(--line) 3px 6px)' }} />在其他门店的班次</span>}
-        <span className="hidden lg:inline">在员工那一行拖动来创建班次；拖动班次移动，拖两端调整时长；点击编辑，右键删除。</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm bg-avail/25" />{tr('员工可用时间')}</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm bg-accent ring-2 ring-danger ring-offset-1 ring-offset-bg" />{tr('超出可用时间或时间重叠')}</span>
+        {otherShifts.length > 0 && <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm border border-line" style={{ background: 'repeating-linear-gradient(135deg, var(--sunken) 0 3px, var(--line) 3px 6px)' }} />{tr('在其他门店的班次')}</span>}
+        <span className="hidden lg:inline">{tr('在员工那一行拖动来创建班次；拖动班次移动，拖两端调整时长；点击编辑，右键删除。')}</span>
       </div>
 
       {editShift && editing && (
@@ -342,10 +343,10 @@ function ShiftEditor({ shift, member, positions, hours, anchor, issue, onClose, 
   return (
     <>
       <div className="fixed inset-0 z-30" onPointerDown={onClose} />
-      <div role="dialog" aria-label="编辑班次" className="pop fixed z-40 rounded-panel border border-line bg-surface p-4 shadow-xl" style={{ width: W, left: x, top: below ? anchor.bottom + 8 : undefined, bottom: below ? undefined : window.innerHeight - anchor.top + 8 }}>
+      <div role="dialog" aria-label={tr('编辑班次')} className="pop fixed z-40 rounded-panel border border-line bg-surface p-4 shadow-xl" style={{ width: W, left: x, top: below ? anchor.bottom + 8 : undefined, bottom: below ? undefined : window.innerHeight - anchor.top + 8 }}>
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-semibold">{member?.name ?? ''}</p>
-          <button onClick={onClose} aria-label="关闭" className="press rounded p-1 text-mute hover:bg-sunken"><X size={16} /></button>
+          <button onClick={onClose} aria-label={tr('关闭')} className="press rounded p-1 text-mute hover:bg-sunken"><X size={16} /></button>
         </div>
         {issue && <p className="mb-3 flex items-start gap-1.5 rounded-control bg-danger/10 px-2.5 py-2 text-xs text-danger"><WarningCircle size={14} weight="fill" className="mt-px shrink-0" />{issue}</p>}
         <div className="mb-3 flex flex-wrap gap-1.5">
@@ -356,17 +357,17 @@ function ShiftEditor({ shift, member, positions, hours, anchor, issue, onClose, 
               {shift.position_id !== p.id && <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />}{p.name}
             </button>
           ))}
-          {positions.length === 0 && <span className="text-xs text-mute">还没有岗位标签，去「设置」里添加</span>}
+          {positions.length === 0 && <span className="text-xs text-mute">{tr('还没有岗位标签，去「设置」里添加')}</span>}
         </div>
         <div className="mb-3 flex items-center gap-2">
-          <input type="time" step={900} value={fmtMin(shift.start_min)} onChange={(e) => setTime('start', e.target.value)} aria-label="开始时间" className="num h-9 flex-1 rounded-control border border-line bg-bg px-2 text-sm" />
+          <input type="time" step={900} value={fmtMin(shift.start_min)} onChange={(e) => setTime('start', e.target.value)} aria-label={tr('开始时间')} className="num h-9 flex-1 rounded-control border border-line bg-bg px-2 text-sm" />
           <span className="text-faint">-</span>
-          <input type="time" step={900} value={fmtMin(shift.end_min)} onChange={(e) => setTime('end', e.target.value)} aria-label="结束时间" className="num h-9 flex-1 rounded-control border border-line bg-bg px-2 text-sm" />
+          <input type="time" step={900} value={fmtMin(shift.end_min)} onChange={(e) => setTime('end', e.target.value)} aria-label={tr('结束时间')} className="num h-9 flex-1 rounded-control border border-line bg-bg px-2 text-sm" />
         </div>
-        <Input value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => note !== shift.note && onChange({ note })} placeholder="备注（员工可见）" maxLength={200} className="h-9" aria-label="备注" />
+        <Input value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => note !== shift.note && onChange({ note })} placeholder={tr('备注（员工可见）')} maxLength={200} className="h-9" aria-label={tr('备注')} />
         <div className="mt-3 flex justify-between">
-          <Button variant="danger" size="sm" onClick={onDelete}><Trash size={15} />删除</Button>
-          <Button size="sm" onClick={() => { if (note !== shift.note) onChange({ note }); onClose() }}>完成</Button>
+          <Button variant="danger" size="sm" onClick={onDelete}><Trash size={15} />{tr('删除')}</Button>
+          <Button size="sm" onClick={() => { if (note !== shift.note) onChange({ note }); onClose() }}>{tr('完成')}</Button>
         </div>
       </div>
     </>

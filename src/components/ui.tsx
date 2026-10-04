@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react'
 import { X } from '@phosphor-icons/react'
+import { translate as t } from '../i18n/core'
 
 export const cn = (...a: (string | false | null | undefined)[]) => a.filter(Boolean).join(' ')
 
@@ -79,7 +80,7 @@ export function Modal({ open, onClose, title, children, width = 440 }: { open: b
         className="pop w-full rounded-t-panel border border-line bg-surface p-5 shadow-xl sm:rounded-panel" style={{ maxWidth: width }}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">{title}</h2>
-          <button onClick={onClose} aria-label="关闭" className="press rounded-control p-1.5 text-mute hover:bg-sunken"><X size={18} /></button>
+          <button onClick={onClose} aria-label={t('关闭')} className="press rounded-control p-1.5 text-mute hover:bg-sunken"><X size={18} /></button>
         </div>
         {children}
       </div>
@@ -142,7 +143,7 @@ export function Logo({ className }: { className?: string }) {
         <rect x="11" y="15" width="15" height="4" rx="2" fill="var(--accent-ink)" opacity=".85" />
         <rect x="6" y="21" width="9" height="4" rx="2" fill="var(--accent-ink)" opacity=".65" />
       </svg>
-      班表
+      {t('班表')}
     </span>
   )
 }

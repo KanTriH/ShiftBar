@@ -7,8 +7,9 @@ import { useManager } from './ManagerLayout'
 import { api } from '../../data'
 import { errMsg } from '../../lib/errors'
 import { holidayLabel, holidayOn } from '../../lib/holidays'
+import { translate as t } from '../../i18n/core'
 import type { Availability, DailyTask, Shift, ShiftInput } from '../../lib/types'
-import { DAY_LABELS, addDays, fmtDay, fmtHours, fmtRangeShort, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
+import { addDays, dayLabel, fmtDay, fmtHours, fmtMD, fmtRangeShort, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
 
 export default function SchedulePage() {
   const { shop, locations, positions, members } = useManager()
@@ -78,8 +79,8 @@ export default function SchedulePage() {
     setShifts((s) => (s ?? []).filter((x) => x.id !== shift.id))
     try {
       await api.deleteShift(shift.id)
-      toast('已删除班次', {
-        label: '撤销',
+      toast(t('已删除班次'), {
+        label: t('撤销'),
         run: async () => {
           const { id: _id, shop_id: _s, ...input } = shift
           try { const back = await api.createShift(shop.id, input); setShifts((s) => [...(s ?? []), back]) } catch (e) { toast(errMsg(e)) }
@@ -93,7 +94,7 @@ export default function SchedulePage() {
     try {
       await api.setPublished(shop.id, week, on)
       setPublished((p) => (on ? [...p, week] : p.filter((w) => w !== week)))
-      toast(on ? '已发布，员工登录后就能看到这一周的班表' : '已撤回，员工暂时看不到这一周的班表')
+      toast(on ? t('已发布，员工登录后就能看到这一周的班表') : t('已撤回，员工暂时看不到这一周的班表'))
     } catch (e) { toast(errMsg(e)) }
   }
 
@@ -116,7 +117,7 @@ export default function SchedulePage() {
   const weekMin = locShifts.reduce((n, s) => n + s.end_min - s.start_min, 0)
 
   if (members.length === 0) {
-    return <Empty title="还没有员工" hint="员工通过分享链接报班后会自动出现在这里，你也可以先手动添加。" action={<Link to="/manager/staff"><Button variant="primary" size="sm">去添加员工</Button></Link>} />
+    return <Empty title={t('还没有员工')} hint={t('员工通过分享链接报班后会自动出现在这里，你也可以先手动添加。')} action={<Link to="/manager/staff"><Button variant="primary" size="sm">{t('去添加员工')}</Button></Link>} />
   }
 
   return (
@@ -124,17 +125,17 @@ export default function SchedulePage() {
       {/* 周切换 + 发布 */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1">
-          <Button size="sm" onClick={() => changeWeek(addDays(week, -7))} aria-label="上一周"><CaretLeft size={16} /></Button>
+          <Button size="sm" onClick={() => changeWeek(addDays(week, -7))} aria-label={t('上一周')}><CaretLeft size={16} /></Button>
           <span className="num min-w-[10rem] text-center text-sm font-medium">{fmtRangeShort(days[0], days[6])}</span>
-          <Button size="sm" onClick={() => changeWeek(addDays(week, 7))} aria-label="下一周"><CaretRight size={16} /></Button>
-          {week !== weekStart(todayISO(), wsd) && <Button size="sm" variant="ghost" onClick={() => changeWeek(weekStart(todayISO(), wsd))}>回到本周</Button>}
+          <Button size="sm" onClick={() => changeWeek(addDays(week, 7))} aria-label={t('下一周')}><CaretRight size={16} /></Button>
+          {week !== weekStart(todayISO(), wsd) && <Button size="sm" variant="ghost" onClick={() => changeWeek(weekStart(todayISO(), wsd))}>{t('回到本周')}</Button>}
         </div>
         <div className="flex items-center gap-3">
-          <span className="num hidden text-sm text-mute sm:inline">{locations.length > 1 ? `${loc?.name} ` : '本周共 '}{fmtHours(weekMin)} 小时</span>
-          {isPublished ? <Badge tone="good">已发布</Badge> : <Badge>草稿</Badge>}
-          <Link to={`/manager/print?week=${week}`}><Button size="sm"><FilePdf size={15} />导出 PDF</Button></Link>
+          <span className="num hidden text-sm text-mute sm:inline">{locations.length > 1 ? t('{loc} {h} 小时', { loc: loc?.name ?? '', h: fmtHours(weekMin) }) : t('本周共 {h} 小时', { h: fmtHours(weekMin) })}</span>
+          {isPublished ? <Badge tone="good">{t('已发布')}</Badge> : <Badge>{t('草稿')}</Badge>}
+          <Link to={`/manager/print?week=${week}`}><Button size="sm"><FilePdf size={15} />{t('导出 PDF')}</Button></Link>
           <Button variant={isPublished ? 'secondary' : 'primary'} size="sm" onClick={togglePublish}>
-            {isPublished ? <>撤回发布</> : <><PaperPlaneTilt size={15} />发布本周</>}
+            {isPublished ? <>{t('撤回发布')}</> : <><PaperPlaneTilt size={15} />{t('发布本周')}</>}
           </Button>
         </div>
       </div>
@@ -142,13 +143,13 @@ export default function SchedulePage() {
       {/* 多门店：切换正在排班的门店 */}
       {locations.length > 1 && loc && (
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-mute">门店</span>
+          <span className="text-sm text-mute">{t('门店')}</span>
           <Segmented value={loc.id} onChange={pickLoc} options={locations.map((l) => ({ value: l.id, label: l.name }))} />
         </div>
       )}
 
       {/* 一周七天：以天为单位排班 */}
-      <div className="grid grid-cols-7 gap-1.5 sm:gap-2" role="tablist" aria-label="选择日期">
+      <div className="grid grid-cols-7 gap-1.5 sm:gap-2" role="tablist" aria-label={t('选择日期')}>
         {days.map((d) => {
           const h = shop.hours[weekdayIdx(d)]
           const n = locShifts.filter((s) => s.day === d).length
@@ -157,10 +158,10 @@ export default function SchedulePage() {
           return (
             <button key={d} role="tab" aria-selected={sel} onClick={() => setDay(d)} title={hol ? holidayLabel(hol) : undefined}
               className={cn('press relative flex flex-col items-center gap-0.5 rounded-control border px-1 py-2 text-center', sel ? 'border-accent bg-accent-soft text-accent' : 'border-line bg-surface hover:bg-sunken', !h && !sel && 'opacity-55')}>
-              <span className="text-xs font-medium">{DAY_LABELS[weekdayIdx(d)]}</span>
-              <span className="num text-[11px] text-mute">{fmtDay(d).replace('月', '/').replace('日', '')}</span>
-              <span className={cn('num text-[11px]', sel ? 'text-accent' : 'text-faint')}>{h ? (n ? `${n} 个班` : '未排') : '休息'}</span>
-              {hol && <Flag size={12} weight="fill" className="absolute right-1 top-1 text-warn" aria-label="法定假日" />}
+              <span className="text-xs font-medium">{dayLabel(weekdayIdx(d))}</span>
+              <span className="num text-[11px] text-mute">{fmtMD(d)}</span>
+              <span className={cn('num text-[11px]', sel ? 'text-accent' : 'text-faint')}>{h ? (n ? t('{n} 个班', { n }) : t('未排')) : t('休息')}</span>
+              {hol && <Flag size={12} weight="fill" className="absolute right-1 top-1 text-warn" aria-label={t('法定假日')} />}
             </button>
           )
         })}
@@ -169,13 +170,13 @@ export default function SchedulePage() {
       {holiday && (
         <p className="flex items-start gap-2 rounded-control bg-warn/15 px-3 py-2 text-sm text-warn" role="note">
           <Flag size={16} weight="fill" className="mt-0.5 shrink-0" />
-          <span>{fmtDay(day)}是法定假日：<strong className="font-semibold">{holidayLabel(holiday)}</strong>。排班前请确认假日用工和工资规定。</span>
+          <span>{t('{date}是法定假日：', { date: fmtDay(day) })}<strong className="font-semibold">{holidayLabel(holiday)}</strong>{t('。排班前请确认假日用工和工资规定。')}</span>
         </p>
       )}
 
       {/* 岗位画笔 */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-mute">新班次的岗位</span>
+        <span className="text-sm text-mute">{t('新班次的岗位')}</span>
         {positions.map((p) => (
           <button key={p.id} onClick={() => setBrush(p.id)} aria-pressed={brush === p.id}
             className={cn('press flex h-8 items-center gap-2 rounded-full border px-3 text-[13px] font-medium', brush === p.id ? 'border-transparent text-white' : 'border-line bg-surface text-mute hover:bg-sunken')}
@@ -183,13 +184,13 @@ export default function SchedulePage() {
             {brush !== p.id && <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} />}{p.name}
           </button>
         ))}
-        {positions.length === 0 && <Link to="/manager/settings" className="text-sm font-medium text-accent">先添加岗位标签</Link>}
+        {positions.length === 0 && <Link to="/manager/settings" className="text-sm font-medium text-accent">{t('先添加岗位标签')}</Link>}
       </div>
 
       {shifts === null || !loc ? (
         <Skeleton className="h-96" />
       ) : !hours ? (
-        <Empty title={`${DAY_LABELS[weekdayIdx(day)]}店铺休息`} hint="需要这天营业的话，到「设置」里修改营业时间。" action={<Link to="/manager/settings"><Button size="sm">去设置</Button></Link>} />
+        <Empty title={t('{day}店铺休息', { day: dayLabel(weekdayIdx(day)) })} hint={t('需要这天营业的话，到「设置」里修改营业时间。')} action={<Link to="/manager/settings"><Button size="sm">{t('去设置')}</Button></Link>} />
       ) : (
         <>
           <DayTimeline
@@ -198,15 +199,15 @@ export default function SchedulePage() {
             onCreate={(input) => create({ ...input, location_id: loc.id })} onUpdate={update} onDelete={remove}
           />
           <section className="rounded-panel border border-line bg-surface p-4">
-            <label htmlFor="daily-task" className="text-sm font-semibold">当日任务 Daily Task</label>
-            <p className="mt-0.5 text-xs text-mute">这一天{locations.length > 1 ? `在「${loc.name}」` : ''}上班的人都需要做的事，一行一件。发布后员工可见，也会印在导出的班表里。</p>
+            <label htmlFor="daily-task" className="text-sm font-semibold">{t('当日任务 Daily Task')}</label>
+            <p className="mt-0.5 text-xs text-mute">{locations.length > 1 ? t('这一天在「{loc}」上班的人都需要做的事，一行一件。发布后员工可见，也会印在导出的班表里。', { loc: loc.name }) : t('这一天上班的人都需要做的事，一行一件。发布后员工可见，也会印在导出的班表里。')}</p>
             <textarea id="daily-task" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={saveTask} rows={3} maxLength={2000}
-              placeholder="例如：盘点库存、擦窗户、关闭制冰机"
+              placeholder={t('例如：盘点库存、擦窗户、关闭制冰机')}
               className="mt-2 w-full resize-y rounded-control border border-line bg-bg px-3 py-2 text-sm placeholder:text-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25" />
           </section>
         </>
       )}
-      {isPublished && shifts && <p className="flex items-center gap-1.5 text-xs text-mute"><CheckCircle size={14} className="text-avail" weight="fill" />这一周已经发布，你现在的修改员工会立刻看到。</p>}
+      {isPublished && shifts && <p className="flex items-center gap-1.5 text-xs text-mute"><CheckCircle size={14} className="text-avail" weight="fill" />{t('这一周已经发布，你现在的修改员工会立刻看到。')}</p>}
     </div>
   )
 }
