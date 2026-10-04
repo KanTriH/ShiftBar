@@ -7,7 +7,8 @@ import { api } from '../data'
 import { useAuth } from '../auth/AuthContext'
 import { buildIcs, downloadFile } from '../lib/ics'
 import { errMsg } from '../lib/errors'
-import type { Member, Position, Shift, Shop } from '../lib/types'
+import { holidayLabel, holidayOn } from '../lib/holidays'
+import type { DailyTask, Location, Member, Position, Shift, Shop } from '../lib/types'
 import { DAY_LABELS, addDays, fmtDay, fmtHours, fmtMin, fmtRangeShort, monthEnd, monthStart, todayISO, weekDays, weekStart, weekdayIdx } from '../lib/time'
 
 type Range = 'week' | 'biweek' | 'month'
@@ -70,8 +71,10 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
   const toast = useToast()
   const [tab, setTab] = useState<'schedule' | 'avail'>('schedule')
   const [range, setRange] = useState<Range>('week')
-  const [week, setWeek] = useState(weekStart(todayISO()))
+  const [week, setWeek] = useState(weekStart(todayISO(), shop.week_start))
   const [positions, setPositions] = useState<Position[]>([])
+  const [locations, setLocations] = useState<Location[]>([])
+  const [tasks, setTasks] = useState<DailyTask[]>([])
   const [weekShifts, setWeekShifts] = useState<Shift[] | null>(null)
   const [statShifts, setStatShifts] = useState<Shift[]>([])
 
@@ -82,6 +85,8 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
   }, [range, week])
 
   useEffect(() => { api.listPositions(shop.id).then(setPositions).catch(() => {}) }, [shop.id])
+  useEffect(() => { api.listLocations(shop.id).then(setLocations).catch(() => {}) }, [shop.id])
+  useEffect(() => { api.listDailyTasks(shop.id, week, addDays(week, 6)).then(setTasks).catch(() => {}) }, [shop.id, week])
   useEffect(() => {
     let alive = true
     setWeekShifts(null)
@@ -142,9 +147,9 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
         </div>
 
         {tab === 'schedule'
-          ? <WeekSchedule shop={shop} week={week} shifts={weekShifts} posOf={posOf} onFill={() => setTab('avail')} />
+          ? <WeekSchedule shop={shop} week={week} shifts={weekShifts} posOf={posOf} locations={locations} tasks={tasks} onFill={() => setTab('avail')} />
           : <AvailabilityForm
-              hours={shop.hours} canSubmit reloadKey={member.id}
+              hours={shop.hours} locations={locations} weekStartDay={shop.week_start} region={shop.region} canSubmit reloadKey={member.id}
               load={(ws) => api.listMyAvailability(member.id, ws, addDays(ws, 6))}
               save={(ws, entries) => api.submitAvailability(shop.code, member.name, ws, entries)}
             />}
@@ -154,9 +159,11 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
 }
 
 /* ---------- 周视图：横向时间条 ---------- */
-function WeekSchedule({ shop, week, shifts, posOf, onFill }: {
-  shop: Shop; week: string; shifts: Shift[] | null; posOf: Map<string, Position>; onFill: () => void
+function WeekSchedule({ shop, week, shifts, posOf, locations, tasks, onFill }: {
+  shop: Shop; week: string; shifts: Shift[] | null; posOf: Map<string, Position>; locations: Location[]; tasks: DailyTask[]; onFill: () => void
 }) {
+  const locName = new Map(locations.map((l) => [l.id, l.name]))
+  const multi = locations.length > 1
   const days = weekDays(week)
   const open = shop.hours.filter(Boolean) as { open: number; close: number }[]
   const axisMin = open.length ? Math.min(...open.map((h) => h.open)) : 540
@@ -188,6 +195,7 @@ function WeekSchedule({ shop, week, shifts, posOf, onFill }: {
               <div className="w-[64px] shrink-0 pt-2">
                 <p className={cn('text-sm font-semibold', isToday && 'text-accent')}>{DAY_LABELS[weekdayIdx(day)]}</p>
                 <p className="num text-xs text-mute">{fmtDay(day)}</p>
+                {holidayOn(day, shop.region) && <p className="mt-0.5 text-[11px] font-medium text-warn" title={holidayLabel(holidayOn(day, shop.region)!)}>{holidayOn(day, shop.region)!.zh}</p>}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="relative h-11 rounded-control bg-sunken">
@@ -199,12 +207,18 @@ function WeekSchedule({ shop, week, shifts, posOf, onFill }: {
                     return (
                       <div key={s.id} title={`${fmtMin(s.start_min)} - ${fmtMin(s.end_min)}`} className="absolute inset-y-1 flex items-center overflow-hidden rounded-[6px] px-2 text-xs font-medium text-white"
                         style={{ left: `${((s.start_min - axisMin) / span) * 100}%`, width: `${((s.end_min - s.start_min) / span) * 100}%`, background: p?.color ?? '#4b5563' }}>
-                        <span className="num truncate">{fmtMin(s.start_min)}-{fmtMin(s.end_min)}{p ? ` ${p.name}` : ''}</span>
+                        <span className="num truncate">{fmtMin(s.start_min)}-{fmtMin(s.end_min)}{p ? ` ${p.name}` : ''}{multi ? ` @${locName.get(s.location_id) ?? ''}` : ''}</span>
                       </div>
                     )
                   })}
                 </div>
                 {list.filter((s) => s.note).map((s) => <p key={s.id} className="mt-1 text-xs text-mute">备注：{s.note}</p>)}
+                {/* 当日任务：只显示我上班的那几家门店的 */}
+                {tasks.filter((t) => t.day === day && list.some((s) => s.location_id === t.location_id)).map((t) => (
+                  <p key={t.location_id} className="mt-1 whitespace-pre-line rounded-control bg-warn/15 px-2 py-1 text-xs text-warn">
+                    <strong className="font-semibold">当日任务{multi ? `（${locName.get(t.location_id) ?? ''}）` : ''}：</strong>{t.text}
+                  </p>
+                ))}
               </div>
             </div>
           )

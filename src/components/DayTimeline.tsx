@@ -20,17 +20,20 @@ interface Props {
   members: Member[]
   positions: Position[]
   shifts: Shift[]
+  /** 同一天在其他门店的班次（只读，用来避免重复排班） */
+  otherShifts: Shift[]
+  locationNames: Map<string, string>
   avail: Availability[]
   /** 本周提交过报班的员工 */
   submitted: Set<string>
   brushId: string | null
-  onCreate: (input: ShiftInput) => void
+  onCreate: (input: Omit<ShiftInput, 'location_id'>) => void
   onUpdate: (id: string, patch: Partial<ShiftInput>) => void
   onDelete: (shift: Shift) => void
 }
 
 export function DayTimeline(props: Props) {
-  const { day, hours, members, positions, shifts, avail, submitted, brushId } = props
+  const { day, hours, members, positions, shifts, otherShifts, locationNames, avail, submitted, brushId } = props
   const span = hours.close - hours.open
   const scrollRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -157,6 +160,8 @@ export function DayTimeline(props: Props) {
     for (const s of view) {
       const msgs: string[] = []
       if (view.some((o) => o.id !== s.id && o.member_id === s.member_id && o.start_min < s.end_min && o.end_min > s.start_min)) msgs.push('和同一个人的其他班次时间重叠')
+      const clash = otherShifts.find((o) => o.member_id === s.member_id && o.start_min < s.end_min && o.end_min > s.start_min)
+      if (clash) msgs.push(`同一时间已在「${locationNames.get(clash.location_id) ?? '其他门店'}」排班`)
       if (submitted.has(s.member_id)) {
         const merged = mergeIntervals((availByMember.get(s.member_id) ?? []).map((a) => [a.start_min, a.end_min]))
         if (!covers(merged, s.start_min, s.end_min)) msgs.push('超出该员工报的可用时间')
@@ -164,7 +169,7 @@ export function DayTimeline(props: Props) {
       if (msgs.length) out.set(s.id, msgs.join('；'))
     }
     return out
-  }, [view, availByMember, submitted])
+  }, [view, otherShifts, locationNames, availByMember, submitted])
 
   const coverage = useMemo(() => {
     const slots: { t: number; by: Map<string, number>; total: number }[] = []
@@ -223,6 +228,23 @@ export function DayTimeline(props: Props) {
               {avail.map((a) => {
                 const i = rowOf.get(a.member_id); if (i === undefined) return null
                 return <div key={a.id} className="pointer-events-none absolute rounded-control bg-avail/25" title={a.note || undefined} style={{ top: i * ROW_H + 4, height: ROW_H - 8, left: left(a.start_min), width: (a.end_min - a.start_min) * px }} />
+              })}
+              {/* 同一个人在其他门店的班次：灰色斜纹，只读 */}
+              {otherShifts.map((o) => {
+                const i = rowOf.get(o.member_id); if (i === undefined) return null
+                const w = (o.end_min - o.start_min) * px
+                return (
+                  <div key={o.id} className="pointer-events-none absolute flex flex-col justify-center overflow-hidden rounded-control border border-line px-2 text-mute"
+                    title={`在「${locationNames.get(o.location_id) ?? '其他门店'}」 ${fmtMin(o.start_min)} - ${fmtMin(o.end_min)}`}
+                    style={{ top: i * ROW_H + 6, height: ROW_H - 12, left: left(o.start_min), width: w, background: 'repeating-linear-gradient(135deg, var(--sunken) 0 6px, var(--line) 6px 12px)' }}>
+                    {w >= 56 && (
+                      <>
+                        <span className="truncate text-[12px] font-semibold leading-tight">{locationNames.get(o.location_id) ?? '其他门店'}</span>
+                        <span className="num truncate text-[11px] leading-tight">{fmtMin(o.start_min)}-{fmtMin(o.end_min)}</span>
+                      </>
+                    )}
+                  </div>
+                )
               })}
               {/* 已排班次 */}
               {view.map((s) => {
@@ -285,6 +307,7 @@ export function DayTimeline(props: Props) {
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-mute">
         <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm bg-avail/25" />员工可用时间</span>
         <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm bg-accent ring-2 ring-danger ring-offset-1 ring-offset-bg" />超出可用时间或时间重叠</span>
+        {otherShifts.length > 0 && <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm border border-line" style={{ background: 'repeating-linear-gradient(135deg, var(--sunken) 0 3px, var(--line) 3px 6px)' }} />在其他门店的班次</span>}
         <span className="hidden lg:inline">在员工那一行拖动来创建班次；拖动班次移动，拖两端调整时长；点击编辑，右键删除。</span>
       </div>
 

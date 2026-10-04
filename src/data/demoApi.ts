@@ -1,8 +1,8 @@
 // 演示模式：未配置 Supabase 时使用，全部数据保存在浏览器 localStorage。
-// 行为与 supabaseApi 保持一致（包括访客按名字报班、员工认领、发布后才可见）。
+// 行为与 supabaseApi 保持一致（包括访客按名字报班、员工认领、发布后才可见、多门店）。
 import type { Api } from './api'
 import type {
-  AppUser, AvailEntry, Availability, Member, Position, Role, Shift, Shop,
+  AppUser, Availability, DailyTask, Location, Member, Position, Role, Shift, Shop,
 } from '../lib/types'
 import { DEFAULT_HOURS, POSITION_COLORS } from '../lib/types'
 import { addDays, todayISO, weekStart } from '../lib/time'
@@ -12,14 +12,16 @@ interface DB {
   users: DemoUser[]
   session: string | null
   shops: (Shop & { owner_id: string })[]
+  locations: Location[]
   positions: Position[]
   members: Member[]
   availability: Availability[]
   shifts: Shift[]
+  tasks: DailyTask[]
   publications: { shop_id: string; week_start: string }[]
 }
 
-const KEY = 'shift-scheduler-demo-v1'
+const KEY = 'shift-scheduler-demo-v2'
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36))
 const delay = () => new Promise((r) => setTimeout(r, 40))
 
@@ -33,7 +35,14 @@ function seed(): DB {
   const ws = weekStart(todayISO())
   const owner: DemoUser = { id: 'u-boss', email: DEMO_ACCOUNTS.manager.email, role: 'manager' }
   const lin: DemoUser = { id: 'u-lin', email: DEMO_ACCOUNTS.staff.email, role: 'staff' }
-  const shop = { id: 's1', owner_id: owner.id, name: '朝暮茶事', code: DEMO_SHOP_CODE, hours: DEFAULT_HOURS.map((h, i) => (i >= 5 ? { open: 600, close: 1380 } : { ...h, close: 1260 })) }
+  const shop: DB['shops'][number] = {
+    id: 's1', owner_id: owner.id, name: '朝暮茶事', code: DEMO_SHOP_CODE, week_start: 1, region: 'ON', pdf_style: 'table',
+    hours: DEFAULT_HOURS.map((h, i) => (i >= 5 ? { open: 600, close: 1380 } : { ...h, close: 1260 })),
+  }
+  const locations: Location[] = [
+    { id: 'l-main', shop_id: 's1', name: '中央店', sort: 0 },
+    { id: 'l-north', shop_id: 's1', name: '北区店', sort: 1 },
+  ]
   const pos: Position[] = [
     { id: 'p-prep', shop_id: 's1', name: 'prep', color: POSITION_COLORS[1], sort: 0 },
     { id: 'p-bar', shop_id: 's1', name: 'bar', color: POSITION_COLORS[2], sort: 1 },
@@ -45,7 +54,7 @@ function seed(): DB {
   ]
   const members: Member[] = names.map(([name, status, user_id], i) => ({ id: `m${i + 1}`, shop_id: 's1', name, status, user_id }))
   const availability: Availability[] = []
-  // 每人一套大致的可用时间模式（分钟）；周末营业时间更晚
+  // 每人一套大致的可用时间模式（分钟）；周末营业时间更晚。吴桐只能去北区店。
   const pattern: Record<string, (d: number) => [number, number][]> = {
     m1: (d) => (d < 5 ? [[540, 1020]] : [[600, 1380]]),
     m2: (d) => (d % 2 === 0 ? [[720, 1260]] : []),
@@ -60,17 +69,27 @@ function seed(): DB {
       const h = shop.hours[d]
       if (!h) continue
       for (const [a, b] of pattern[m.id](d)) {
-        availability.push({ id: uid(), shop_id: 's1', member_id: m.id, day: addDays(ws, d), start_min: Math.max(a, h.open), end_min: Math.min(b, h.close), note: '' })
+        availability.push({
+          id: uid(), shop_id: 's1', member_id: m.id, day: addDays(ws, d), start_min: Math.max(a, h.open), end_min: Math.min(b, h.close),
+          note: '', location_ids: m.id === 'm4' ? ['l-north'] : [],
+        })
       }
     }
   }
   const shifts: Shift[] = [
-    ['m1', 'p-cash', 0, 540, 900], ['m4', 'p-prep', 0, 540, 840], ['m2', 'p-bar', 0, 720, 1260], ['m6', 'p-bar', 0, 660, 900],
-    ['m1', 'p-cash', 1, 540, 900], ['m4', 'p-prep', 1, 540, 840], ['m3', 'p-bar', 1, 900, 1260],
-    ['m1', 'p-cash', 2, 540, 1020], ['m2', 'p-bar', 2, 720, 1260], ['m4', 'p-prep', 2, 540, 840],
-  ].map(([m, p, d, a, b]) => ({ id: uid(), shop_id: 's1', member_id: m as string, position_id: p as string, day: addDays(ws, d as number), start_min: a as number, end_min: b as number, note: '' }))
+    ['m1', 'p-cash', 0, 540, 900], ['m4', 'p-prep', 0, 540, 840, 'l-north'], ['m2', 'p-bar', 0, 720, 1260], ['m6', 'p-bar', 0, 660, 900],
+    ['m1', 'p-cash', 1, 540, 900], ['m4', 'p-prep', 1, 540, 840, 'l-north'], ['m3', 'p-bar', 1, 900, 1260],
+    ['m1', 'p-cash', 2, 540, 1020], ['m2', 'p-bar', 2, 720, 1260], ['m4', 'p-prep', 2, 540, 840, 'l-north'],
+  ].map(([m, p, d, a, b, l]) => ({
+    id: uid(), shop_id: 's1', member_id: m as string, position_id: p as string, location_id: (l as string | undefined) ?? 'l-main',
+    day: addDays(ws, d as number), start_min: a as number, end_min: b as number, note: '',
+  }))
+  const tasks: DailyTask[] = [
+    { shop_id: 's1', location_id: 'l-main', day: addDays(ws, 0), text: 'Floor mat 地毯（用吸尘器）\nSyrup pump 糖浆泵头\nWindows 窗户' },
+    { shop_id: 's1', location_id: 'l-main', day: addDays(ws, 2), text: 'Weekly Inventory 每周盘点' },
+  ]
   return {
-    users: [owner, lin], session: null, shops: [shop], positions: pos, members, availability, shifts,
+    users: [owner, lin], session: null, shops: [shop], locations, positions: pos, members, availability, shifts, tasks,
     publications: [{ shop_id: 's1', week_start: ws }],
   }
 }
@@ -87,17 +106,19 @@ function load(): DB {
 function save(db: DB) { try { localStorage.setItem(KEY, JSON.stringify(db)) } catch { /* ignore */ } }
 export function resetDemo() { try { localStorage.removeItem(KEY) } catch { /* ignore */ } }
 
-const weekOf = (day: string) => weekStart(day)
-const strip = (s: Shop & { owner_id?: string }): Shop => ({ id: s.id, name: s.name, code: s.code, hours: s.hours })
+type ShopRow = Shop & { owner_id?: string }
+const strip = (s: ShopRow): Shop => ({ id: s.id, name: s.name, code: s.code, hours: s.hours, week_start: s.week_start, region: s.region, pdf_style: s.pdf_style })
+const firstLocation = (db: DB, shopId: string) => db.locations.filter((l) => l.shop_id === shopId).sort((a, b) => a.sort - b.sort)[0]
 
 export function createDemoApi(): Api {
-  let db = load()
+  const db = load()
   const listeners = new Set<(u: AppUser | null) => void>()
   const commit = () => save(db)
   const me = (): DemoUser | null => db.users.find((u) => u.id === db.session) ?? null
   const asUser = (u: DemoUser | null): AppUser | null => (u ? { id: u.id, email: u.email, role: u.role } : null)
   const emit = () => listeners.forEach((cb) => cb(asUser(me())))
   const shopByCode = (code: string) => db.shops.find((s) => s.code === code)
+  const weekOf = (shopId: string, day: string) => weekStart(day, db.shops.find((s) => s.id === shopId)?.week_start ?? 1)
 
   return {
     mode: 'demo',
@@ -125,14 +146,31 @@ export function createDemoApi(): Api {
     async createShop(name, positionNames) {
       await delay()
       const u = me()!
-      const s = { id: uid(), owner_id: u.id, name, code: uid().replace(/-/g, '').slice(0, 8), hours: DEFAULT_HOURS.map((h) => ({ ...h })) }
+      const s: DB['shops'][number] = { id: uid(), owner_id: u.id, name, code: uid().replace(/-/g, '').slice(0, 8), hours: DEFAULT_HOURS.map((h) => ({ ...h })), week_start: 1, region: 'CA', pdf_style: 'table' }
       db.shops.push(s)
+      db.locations.push({ id: uid(), shop_id: s.id, name, sort: 0 })
       positionNames.forEach((n, i) => db.positions.push({ id: uid(), shop_id: s.id, name: n, color: POSITION_COLORS[i % POSITION_COLORS.length], sort: i }))
       commit(); return strip(s)
     },
     async updateShop(id, patch) {
       const s = db.shops.find((x) => x.id === id)!
+      // 与数据库触发器一致：修改一周起始日会清空发布记录
+      if (patch.week_start !== undefined && patch.week_start !== s.week_start) db.publications = db.publications.filter((p) => p.shop_id !== id)
       Object.assign(s, patch); commit()
+    },
+
+    async listLocations(shopId) { await delay(); return db.locations.filter((l) => l.shop_id === shopId).sort((a, b) => a.sort - b.sort) },
+    async createLocation(shopId, name) {
+      const l: Location = { id: uid(), shop_id: shopId, name, sort: db.locations.filter((x) => x.shop_id === shopId).length }
+      db.locations.push(l); commit(); return l
+    },
+    async updateLocation(id, patch) { Object.assign(db.locations.find((l) => l.id === id)!, patch); commit() },
+    async deleteLocation(id) {
+      db.locations = db.locations.filter((l) => l.id !== id)
+      db.shifts = db.shifts.filter((s) => s.location_id !== id)
+      db.tasks = db.tasks.filter((t) => t.location_id !== id)
+      db.availability.forEach((a) => { a.location_ids = a.location_ids.filter((x) => x !== id) })
+      commit()
     },
 
     async listPositions(shopId) { await delay(); return db.positions.filter((p) => p.shop_id === shopId).sort((a, b) => a.sort - b.sort) },
@@ -164,11 +202,23 @@ export function createDemoApi(): Api {
     async listAvailability(shopId, from, to) { await delay(); return db.availability.filter((a) => a.shop_id === shopId && a.day >= from && a.day <= to) },
     async listShifts(shopId, from, to) { await delay(); return db.shifts.filter((s) => s.shop_id === shopId && s.day >= from && s.day <= to) },
     async createShift(shopId, input) {
-      const s: Shift = { id: uid(), shop_id: shopId, note: '', ...input }
+      const s: Shift = { id: uid(), shop_id: shopId, note: '', ...input, location_id: input.location_id ?? firstLocation(db, shopId).id }
       db.shifts.push(s); commit(); return s
     },
     async updateShift(id, patch) { Object.assign(db.shifts.find((s) => s.id === id)!, patch); commit() },
     async deleteShift(id) { db.shifts = db.shifts.filter((s) => s.id !== id); commit() },
+
+    async listDailyTasks(shopId, from, to) {
+      await delay()
+      const u = me(); const isOwner = !!u && db.shops.some((s) => s.id === shopId && s.owner_id === u.id)
+      const published = new Set(db.publications.filter((p) => p.shop_id === shopId).map((p) => p.week_start))
+      return db.tasks.filter((t) => t.shop_id === shopId && t.day >= from && t.day <= to && (isOwner || published.has(weekOf(shopId, t.day))))
+    },
+    async setDailyTask(shopId, locationId, day, text) {
+      db.tasks = db.tasks.filter((t) => !(t.location_id === locationId && t.day === day))
+      if (text.trim()) db.tasks.push({ shop_id: shopId, location_id: locationId, day, text })
+      commit()
+    },
     async listPublished(shopId) { return db.publications.filter((p) => p.shop_id === shopId).map((p) => p.week_start) },
     async setPublished(shopId, ws, on) {
       db.publications = db.publications.filter((p) => !(p.shop_id === shopId && p.week_start === ws))
@@ -180,13 +230,17 @@ export function createDemoApi(): Api {
       await delay()
       const s = shopByCode(code)
       if (!s) return null
-      return { name: s.name, hours: s.hours, members: db.members.filter((m) => m.shop_id === s.id).map((m) => ({ name: m.name, claimed: !!m.user_id })) }
+      return {
+        name: s.name, hours: s.hours, week_start: s.week_start, region: s.region,
+        locations: db.locations.filter((l) => l.shop_id === s.id).sort((a, b) => a.sort - b.sort).map((l) => ({ id: l.id, name: l.name })),
+        members: db.members.filter((m) => m.shop_id === s.id).map((m) => ({ name: m.name, claimed: !!m.user_id })),
+      }
     },
     async getGuestAvailability(code, name, ws) {
       const s = shopByCode(code)
       const m = s && db.members.find((x) => x.shop_id === s.id && x.name.toLowerCase() === name.trim().toLowerCase())
       if (!m || m.user_id) return []
-      return db.availability.filter((a) => a.member_id === m.id && a.day >= ws && a.day < addDays(ws, 7)).map((a) => ({ day: a.day, start: a.start_min, end: a.end_min, note: a.note }))
+      return db.availability.filter((a) => a.member_id === m.id && a.day >= ws && a.day < addDays(ws, 7)).map((a) => ({ day: a.day, start: a.start_min, end: a.end_min, note: a.note, locations: a.location_ids }))
     },
     async submitAvailability(code, name, ws, entries) {
       await delay()
@@ -202,10 +256,11 @@ export function createDemoApi(): Api {
         if (!m) { m = { id: uid(), shop_id: s.id, name: nm.slice(0, 30), status: 'regular', user_id: null }; db.members.push(m) }
       }
       const end = addDays(ws, 7)
+      const validLocs = new Set(db.locations.filter((l) => l.shop_id === s.id).map((l) => l.id))
       db.availability = db.availability.filter((a) => !(a.member_id === m!.id && a.day >= ws && a.day < end))
       for (const e of entries) {
         if (e.day >= ws && e.day < end && e.end > e.start) {
-          db.availability.push({ id: uid(), shop_id: s.id, member_id: m.id, day: e.day, start_min: e.start, end_min: e.end, note: e.note })
+          db.availability.push({ id: uid(), shop_id: s.id, member_id: m.id, day: e.day, start_min: e.start, end_min: e.end, note: e.note, location_ids: (e.locations ?? []).filter((x) => validLocs.has(x)) })
         }
       }
       commit()
@@ -230,17 +285,15 @@ export function createDemoApi(): Api {
       return { shop: strip(db.shops.find((s) => s.id === m.shop_id)!), member: m }
     },
     async listMyAvailability(memberId, from, to) {
-      return db.availability.filter((a) => a.member_id === memberId && a.day >= from && a.day <= to).map((a) => ({ day: a.day, start: a.start_min, end: a.end_min, note: a.note }))
+      return db.availability.filter((a) => a.member_id === memberId && a.day >= from && a.day <= to).map((a) => ({ day: a.day, start: a.start_min, end: a.end_min, note: a.note, locations: a.location_ids }))
     },
     async listMyShifts(memberId, from, to) {
       await delay()
       const m = db.members.find((x) => x.id === memberId)
       const pub = new Set(db.publications.filter((p) => p.shop_id === m?.shop_id).map((p) => p.week_start))
       return db.shifts
-        .filter((s) => s.member_id === memberId && s.day >= from && s.day <= to && pub.has(weekOf(s.day)))
+        .filter((s) => s.member_id === memberId && s.day >= from && s.day <= to && pub.has(weekOf(s.shop_id, s.day)))
         .sort((a, b) => (a.day + String(a.start_min).padStart(4, '0')).localeCompare(b.day + String(b.start_min).padStart(4, '0')))
     },
   }
 }
-
-export type { AvailEntry }

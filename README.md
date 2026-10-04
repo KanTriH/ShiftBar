@@ -19,8 +19,11 @@ npm run dev
 ## 连接 Supabase
 
 1. 在 [supabase.com](https://supabase.com) 新建项目。
-2. 打开 **SQL Editor > New query**，粘贴并运行 [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)。
-   它会创建全部表、行级安全策略（RLS）和访客用的 RPC 函数。需要重来时先运行 [`supabase/reset.sql`](supabase/reset.sql)。
+2. 打开 **SQL Editor > New query**，**按顺序**粘贴并运行：
+   1. [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)：创建基础表、行级安全策略（RLS）和访客用的 RPC 函数。
+   2. [`supabase/migrations/0002_locations_tasks_settings.sql`](supabase/migrations/0002_locations_tasks_settings.sql)：多门店、当日任务、店铺设置（一周起始日 / 假日地区 / PDF 样式）。
+
+   已经运行过 0001 的数据库只需要补运行 0002，不会丢数据。**升级时先运行迁移，再部署新版前端。** 需要从头重来时先运行 [`supabase/reset.sql`](supabase/reset.sql)（会清空全部数据）。
 3. **Authentication > Providers > Email**：开发阶段建议关闭 "Confirm email"，否则注册后要先点邮件里的确认链接才能登录。
 4. **Project Settings > API** 复制 Project URL 和 anon public key：
 
@@ -34,11 +37,13 @@ npm run dev
 
 | 表 | 说明 |
 |---|---|
-| `shops` | 店铺，`hours` 为 7 天营业时间（分钟数），`code` 为员工报班用的店铺码 |
+| `shops` | 店铺，`hours` 为 7 天营业时间（分钟数），`code` 为员工报班用的店铺码；`week_start`（一周起始日）、`region`（法定假日地区）、`pdf_style`（默认 PDF 样式）为设置项 |
+| `locations` | 门店。同一批员工可在多家门店排班；新建店铺时自动创建第一家 |
 | `positions` | 岗位标签（名称 + 颜色），店长自定义 |
 | `members` | 员工，`status` 为 `trial` / `regular`，`user_id` 为空表示尚未注册的访客 |
-| `availability` | 员工报的可用时间（按日期，分钟为单位） |
-| `shifts` | 店长排的班次 |
+| `availability` | 员工报的可用时间（按日期，分钟为单位），`location_ids` 为员工能去的门店，空 = 任意门店 |
+| `shifts` | 店长排的班次，属于某家门店 |
+| `daily_tasks` | 当日任务（每家门店每天一条文本），发布后员工可见 |
 | `publications` | 某店某周（周一日期）是否已发布 |
 
 - 店长（`shops.owner_id`）可读写自己店铺的全部数据。
@@ -46,6 +51,14 @@ npm run dev
 - 访客不直接访问表，只能通过 RPC：`get_shop_public`、`get_guest_availability`、`submit_availability`。
   已被注册员工认领的名字，访客不能覆盖也读不到（`name_claimed`）。
 - 员工注册后用 `claim_member(店铺码, 名字)` 认领同名的访客记录，之前报的班自动归到账号下。
+
+## 功能说明
+
+- **多门店**：设置里添加门店后，排班页出现门店切换，员工报班时可多选能去的门店。同一个人在其他门店的班次会以灰色斜纹显示，时间冲突会告警。只有一家门店时这些选项都不显示。
+- **当日任务**：排班页每天下方可以写这一天上班的人要做的事，员工页和导出的 PDF 里都会显示。
+- **一周起始日**：设置 > 排班偏好，可选周一或周日。切换后已发布的周会重置为草稿，需要重新发布。
+- **法定假日**：设置 > 排班偏好选择地区（联邦通用 / ON / BC / AB / SK / QC），假日会在排班页、报班表、员工班表和 PDF 里提醒。名称按日期规则本地计算，**仅供参考**，遇周末顺延和假日工资规定请以官方公告为准。
+- **PDF 导出**：排班页「导出 PDF」，可选表格或时间条样式、按门店或全部门店输出；默认样式在设置里选。
 
 ## 已知限制
 
