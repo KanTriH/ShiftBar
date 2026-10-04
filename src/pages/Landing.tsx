@@ -5,6 +5,8 @@ import { Button, Input, Logo } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../data'
 import { DEMO_SHOP_CODE } from '../data/demoApi'
+import { LangSwitch } from '../i18n'
+import { translate as t } from '../i18n/core'
 
 const ROWS = [
   { name: '林晓', avail: [0, 0.62], shifts: [{ a: 0, b: 0.5, c: '#c9532f', t: 'cashier' }] },
@@ -21,7 +23,7 @@ function TimelinePreview() {
       <div className="flex flex-col gap-2">
         {ROWS.map((r) => (
           <div key={r.name} className="flex items-center gap-3">
-            <span className="w-[60px] shrink-0 text-[13px] font-medium">{r.name}</span>
+            <span className="w-[60px] shrink-0 text-[13px] font-medium">{t(r.name)}</span>
             <div className="relative h-9 flex-1 rounded-control bg-sunken">
               <div className="absolute inset-y-0 rounded-control bg-avail/25" style={{ left: `${r.avail[0] * 100}%`, width: `${(r.avail[1] - r.avail[0]) * 100}%` }} />
               {r.shifts.map((s, i) => (
@@ -32,8 +34,8 @@ function TimelinePreview() {
         ))}
       </div>
       <p className="mt-4 flex items-center gap-2 text-xs text-mute">
-        <span className="inline-block h-3 w-5 rounded-sm bg-avail/25" />员工报的可用时间
-        <span className="ml-3 inline-block h-3 w-5 rounded-sm bg-accent" />店长排的班次
+        <span className="inline-block h-3 w-5 rounded-sm bg-avail/25" />{t('员工报的可用时间')}
+        <span className="ml-3 inline-block h-3 w-5 rounded-sm bg-accent" />{t('店长排的班次')}
       </p>
     </div>
   )
@@ -47,31 +49,34 @@ export default function Landing() {
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-4 sm:px-6">
       <header className="flex h-16 items-center justify-between">
         <Logo />
-        {user ? <Link to="/go" className="text-sm font-medium text-accent">进入我的页面</Link> : <Link to="/auth" className="text-sm font-medium text-mute hover:text-ink">登录</Link>}
+        <div className="flex items-center gap-2">
+          <LangSwitch />
+          {user ? <Link to="/go" className="text-sm font-medium text-accent">{t('进入我的页面')}</Link> : <Link to="/auth" className="text-sm font-medium text-mute hover:text-ink">{t('登录')}</Link>}
+        </div>
       </header>
 
       <main className="grid flex-1 items-center gap-10 pb-16 pt-6 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
         <div>
-          <h1 className="text-4xl font-semibold leading-[1.15] tracking-tight md:text-5xl">小店排班，<br />拖一拖就排好</h1>
-          <p className="mt-5 max-w-[34ch] text-base leading-relaxed text-mute">员工在线报班，店长在时间轴上拖拽排班，发布后员工一键导入日历。</p>
+          <h1 className="text-4xl font-semibold leading-[1.15] tracking-tight md:text-5xl">{t('小店排班，')}<br />{t('拖一拖就排好')}</h1>
+          <p className="mt-5 max-w-[34ch] text-base leading-relaxed text-mute">{t('员工在线报班，店长在时间轴上拖拽排班，发布后员工一键导入日历。')}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button variant="primary" className="h-11 px-5" onClick={() => nav('/auth?role=manager&mode=signup')}>我是店长<ArrowRight size={16} /></Button>
+            <Button variant="primary" className="h-11 px-5" onClick={() => nav('/auth?role=manager&mode=signup')}>{t('我是店长')}<ArrowRight size={16} /></Button>
           </div>
 
           <form
             className="mt-10 max-w-sm"
             onSubmit={(e) => { e.preventDefault(); const c = code.trim(); if (c) nav(`/s/${c}`) }}
           >
-            <label className="mb-2 block text-sm font-medium" htmlFor="code">我是员工，用店铺码报班</label>
+            <label className="mb-2 block text-sm font-medium" htmlFor="code">{t('我是员工，用店铺码报班')}</label>
             <div className="flex gap-2">
-              <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="向店长要店铺码或链接" />
-              <Button type="submit" variant="secondary" disabled={!code.trim()}>进入</Button>
+              <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder={t('向店长要店铺码或链接')} />
+              <Button type="submit" variant="secondary" disabled={!code.trim()}>{t('进入')}</Button>
             </div>
-            <p className="mt-2 text-xs text-mute">不用注册也能报班。注册后可以查看班表并导入日历。</p>
+            <p className="mt-2 text-xs text-mute">{t('不用注册也能报班。注册后可以查看班表并导入日历。')}</p>
           </form>
           {api.mode === 'demo' && (
             <p className="mt-6 max-w-sm rounded-control bg-accent-soft px-3 py-2 text-xs text-accent">
-              演示模式：还没连接 Supabase，数据只保存在这个浏览器。演示店铺码：<button className="num font-semibold underline" onClick={() => setCode(DEMO_SHOP_CODE)}>{DEMO_SHOP_CODE}</button>
+              {t('演示模式：还没连接 Supabase，数据只保存在这个浏览器。演示店铺码：')}<button className="num font-semibold underline" onClick={() => setCode(DEMO_SHOP_CODE)}>{DEMO_SHOP_CODE}</button>
             </p>
           )}
         </div>

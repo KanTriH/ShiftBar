@@ -7,9 +7,11 @@ import { api } from '../data'
 import { useAuth } from '../auth/AuthContext'
 import { buildIcs, downloadFile } from '../lib/ics'
 import { errMsg } from '../lib/errors'
-import { holidayLabel, holidayOn } from '../lib/holidays'
+import { holidayLabel, holidayName, holidayOn } from '../lib/holidays'
+import { LangSwitch } from '../i18n'
+import { translate as t } from '../i18n/core'
 import type { DailyTask, Location, Member, Position, Shift, Shop } from '../lib/types'
-import { DAY_LABELS, addDays, fmtDay, fmtHours, fmtMin, fmtRangeShort, monthEnd, monthStart, todayISO, weekDays, weekStart, weekdayIdx } from '../lib/time'
+import { addDays, dayLabel, fmtDay, fmtHours, fmtMin, fmtRangeShort, monthEnd, monthStart, todayISO, weekDays, weekStart, weekdayIdx } from '../lib/time'
 
 type Range = 'week' | 'biweek' | 'month'
 
@@ -34,7 +36,8 @@ export default function StaffPage() {
         <Link to="/"><Logo /></Link>
         <div className="flex items-center gap-3">
           <span className="hidden text-sm text-mute sm:inline">{user?.email}</span>
-          <Button variant="ghost" size="sm" onClick={signOut}><SignOut size={16} />退出</Button>
+          <LangSwitch />
+          <Button variant="ghost" size="sm" onClick={signOut}><SignOut size={16} />{t('退出')}</Button>
         </div>
       </header>
       {ms ? <Dashboard shop={ms.shop} member={ms.member} /> : <Claim onDone={reload} />}
@@ -54,13 +57,13 @@ function Claim({ onDone }: { onDone: () => void }) {
   }
   return (
     <div className="max-w-sm pt-8">
-      <h1 className="text-2xl font-semibold tracking-tight">绑定你的店铺</h1>
-      <p className="mt-2 text-sm text-mute">输入店长给你的店铺码，再填上排班表里用的名字。之前用这个名字报过班的话，记录会自动归到你的账号下。</p>
+      <h1 className="text-2xl font-semibold tracking-tight">{t('绑定你的店铺')}</h1>
+      <p className="mt-2 text-sm text-mute">{t('输入店长给你的店铺码，再填上排班表里用的名字。之前用这个名字报过班的话，记录会自动归到你的账号下。')}</p>
       <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
-        <Field label="店铺码"><Input value={code} onChange={(e) => setCode(e.target.value)} required /></Field>
-        <Field label="你的名字"><Input value={name} onChange={(e) => setName(e.target.value)} required maxLength={30} /></Field>
+        <Field label={t('店铺码')}><Input value={code} onChange={(e) => setCode(e.target.value)} required /></Field>
+        <Field label={t('你的名字')}><Input value={name} onChange={(e) => setName(e.target.value)} required maxLength={30} /></Field>
         {error && <p className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">{error}</p>}
-        <Button type="submit" variant="primary" disabled={busy}>{busy ? '绑定中...' : '绑定'}</Button>
+        <Button type="submit" variant="primary" disabled={busy}>{busy ? t('绑定中...') : t('绑定')}</Button>
       </form>
     </div>
   )
@@ -104,13 +107,13 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
   const daysWorked = new Set(statShifts.map((s) => s.day)).size
 
   const exportIcs = () => {
-    if (!statShifts.length) { toast('这个范围内还没有班次可导出'); return }
+    if (!statShifts.length) { toast(t('这个范围内还没有班次可导出')); return }
     const events = statShifts.map((s) => ({
       id: s.id, day: s.day, start: s.start_min, end: s.end_min,
       title: `${shop.name}${s.position_id && posOf.get(s.position_id) ? ' · ' + posOf.get(s.position_id)!.name : ''}`, note: s.note,
     }))
-    downloadFile(`班表-${from}_${to}.ics`, buildIcs(events, `${shop.name} 班表`))
-    toast('已下载，打开文件即可导入日历')
+    downloadFile(`${t('班表')}-${from}_${to}.ics`, buildIcs(events, `${shop.name} ${t('班表')}`))
+    toast(t('已下载，打开文件即可导入日历'))
   }
 
   return (
@@ -120,28 +123,28 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
           <p className="text-sm text-mute">{shop.name}</p>
           <div className="mt-1 flex items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">{member.name}</h1>
-            {member.status === 'trial' && <Badge tone="warn">试工</Badge>}
+            {member.status === 'trial' && <Badge tone="warn">{t('试工')}</Badge>}
           </div>
         </div>
 
         <div className="rounded-panel border border-line bg-surface p-4">
-          <Segmented size="sm" value={range} onChange={setRange} options={[{ value: 'week', label: '周' }, { value: 'biweek', label: '双周' }, { value: 'month', label: '月' }]} />
+          <Segmented size="sm" value={range} onChange={setRange} options={[{ value: 'week', label: t('周') }, { value: 'biweek', label: t('双周') }, { value: 'month', label: t('月') }]} />
           <p className="num mt-3 text-xs text-mute">{fmtRangeShort(from, to)}</p>
-          <p className="num mt-1 text-4xl font-semibold tracking-tight">{fmtHours(totalMin)}<span className="ml-1 text-base font-normal text-mute">小时</span></p>
-          <p className="mt-1 text-sm text-mute">{statShifts.length} 个班次，{daysWorked} 天上班</p>
-          <Button className="mt-4 w-full" onClick={exportIcs}><DownloadSimple size={16} />导出到日历</Button>
-          <p className="mt-2 text-xs text-faint">下载 .ics 文件，Google、Apple、Outlook 日历都能导入。</p>
+          <p className="num mt-1 text-4xl font-semibold tracking-tight">{fmtHours(totalMin)}<span className="ml-1 text-base font-normal text-mute">{t('小时')}</span></p>
+          <p className="mt-1 text-sm text-mute">{t('{n} 个班次，{d} 天上班', { n: statShifts.length, d: daysWorked })}</p>
+          <Button className="mt-4 w-full" onClick={exportIcs}><DownloadSimple size={16} />{t('导出到日历')}</Button>
+          <p className="mt-2 text-xs text-faint">{t('下载 .ics 文件，Google、Apple、Outlook 日历都能导入。')}</p>
         </div>
       </aside>
 
       <main className="min-w-0">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <Segmented value={tab} onChange={setTab} options={[{ value: 'schedule', label: '我的班表' }, { value: 'avail', label: '填写可用时间' }]} />
+          <Segmented value={tab} onChange={setTab} options={[{ value: 'schedule', label: t('我的班表') }, { value: 'avail', label: t('填写可用时间') }]} />
           {tab === 'schedule' && (
             <div className="flex items-center gap-1">
-              <Button size="sm" onClick={() => setWeek(addDays(week, -7))} aria-label="上一周"><CaretLeft size={16} /></Button>
+              <Button size="sm" onClick={() => setWeek(addDays(week, -7))} aria-label={t('上一周')}><CaretLeft size={16} /></Button>
               <span className="num min-w-[9.5rem] text-center text-sm font-medium">{fmtRangeShort(week, addDays(week, 6))}</span>
-              <Button size="sm" onClick={() => setWeek(addDays(week, 7))} aria-label="下一周"><CaretRight size={16} /></Button>
+              <Button size="sm" onClick={() => setWeek(addDays(week, 7))} aria-label={t('下一周')}><CaretRight size={16} /></Button>
             </div>
           )}
         </div>
@@ -179,7 +182,7 @@ function WeekSchedule({ shop, week, shifts, posOf, locations, tasks, onFill }: {
     <div>
       {shifts.length === 0 && (
         <div className="mb-4">
-          <Empty title="这一周还没有你的班次" hint="可能店长还没有发布这周的班表。发布之前，先把你能上班的时间告诉店长吧。" action={<Button variant="primary" size="sm" onClick={onFill}><CalendarCheck size={16} />填写可用时间</Button>} />
+          <Empty title={t('这一周还没有你的班次')} hint={t('可能店长还没有发布这周的班表。发布之前，先把你能上班的时间告诉店长吧。')} action={<Button variant="primary" size="sm" onClick={onFill}><CalendarCheck size={16} />{t('填写可用时间')}</Button>} />
         </div>
       )}
       <div className="relative ml-[76px] mb-1 h-4 text-[11px] text-faint num" aria-hidden>
@@ -193,15 +196,15 @@ function WeekSchedule({ shop, week, shifts, posOf, locations, tasks, onFill }: {
           return (
             <div key={day} className="flex items-stretch gap-3">
               <div className="w-[64px] shrink-0 pt-2">
-                <p className={cn('text-sm font-semibold', isToday && 'text-accent')}>{DAY_LABELS[weekdayIdx(day)]}</p>
+                <p className={cn('text-sm font-semibold', isToday && 'text-accent')}>{dayLabel(weekdayIdx(day))}</p>
                 <p className="num text-xs text-mute">{fmtDay(day)}</p>
-                {holidayOn(day, shop.region) && <p className="mt-0.5 text-[11px] font-medium text-warn" title={holidayLabel(holidayOn(day, shop.region)!)}>{holidayOn(day, shop.region)!.zh}</p>}
+                {holidayOn(day, shop.region) && <p className="mt-0.5 text-[11px] font-medium text-warn" title={holidayLabel(holidayOn(day, shop.region)!)}>{holidayName(holidayOn(day, shop.region)!)}</p>}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="relative h-11 rounded-control bg-sunken">
                   {ticks.map((m) => <div key={m} className="absolute inset-y-0 w-px bg-line" style={{ left: `${((m - axisMin) / span) * 100}%` }} />)}
                   {h && <div className="absolute inset-y-0 rounded-control border border-dashed border-line" style={{ left: `${((h.open - axisMin) / span) * 100}%`, width: `${((h.close - h.open) / span) * 100}%` }} />}
-                  {!h && <span className="absolute inset-0 grid place-items-center text-xs text-faint">店铺休息</span>}
+                  {!h && <span className="absolute inset-0 grid place-items-center text-xs text-faint">{t('店铺休息')}</span>}
                   {list.map((s) => {
                     const p = s.position_id ? posOf.get(s.position_id) : undefined
                     return (
@@ -212,11 +215,11 @@ function WeekSchedule({ shop, week, shifts, posOf, locations, tasks, onFill }: {
                     )
                   })}
                 </div>
-                {list.filter((s) => s.note).map((s) => <p key={s.id} className="mt-1 text-xs text-mute">备注：{s.note}</p>)}
+                {list.filter((s) => s.note).map((s) => <p key={s.id} className="mt-1 text-xs text-mute">{t('备注：')}{s.note}</p>)}
                 {/* 当日任务：只显示我上班的那几家门店的 */}
-                {tasks.filter((t) => t.day === day && list.some((s) => s.location_id === t.location_id)).map((t) => (
-                  <p key={t.location_id} className="mt-1 whitespace-pre-line rounded-control bg-warn/15 px-2 py-1 text-xs text-warn">
-                    <strong className="font-semibold">当日任务{multi ? `（${locName.get(t.location_id) ?? ''}）` : ''}：</strong>{t.text}
+                {tasks.filter((k) => k.day === day && list.some((s) => s.location_id === k.location_id)).map((k) => (
+                  <p key={k.location_id} className="mt-1 whitespace-pre-line rounded-control bg-warn/15 px-2 py-1 text-xs text-warn">
+                    <strong className="font-semibold">{multi ? t('当日任务（{loc}）：', { loc: locName.get(k.location_id) ?? '' }) : t('当日任务：')}</strong>{k.text}
                   </p>
                 ))}
               </div>

@@ -1,3 +1,5 @@
+import { translate } from '../i18n/core'
+
 const MAP: Record<string, string> = {
   shop_not_found: '找不到这家店铺，请检查店铺码',
   name_required: '请填写你的名字',
@@ -10,6 +12,6 @@ const MAP: Record<string, string> = {
 }
 export function errMsg(e: unknown) {
   const raw = e instanceof Error ? e.message : String(e)
-  for (const k of Object.keys(MAP)) if (raw.includes(k)) return MAP[k]
-  return raw || '出错了，请重试'
+  for (const k of Object.keys(MAP)) if (raw.includes(k)) return translate(MAP[k])
+  return translate(raw) || translate('出错了，请重试')
 }

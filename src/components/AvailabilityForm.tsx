@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CaretLeft, CaretRight, CheckCircle, Plus, Sun, Trash } from '@phosphor-icons/react'
 import { Button, Input, Skeleton, cn, useToast } from './ui'
-import { holidayLabel, holidayOn } from '../lib/holidays'
+import { holidayLabel, holidayName, holidayOn } from '../lib/holidays'
+import { translate as t } from '../i18n/core'
 import type { AvailEntry, WeekHours, WeekStartDay } from '../lib/types'
-import { DAY_LABELS, addDays, fmtDay, fmtMin, mergeIntervals, parseHM, todayISO, weekDays, weekStart, weekdayIdx } from '../lib/time'
+import { addDays, dayLabel, fmtDay, fmtMin, mergeIntervals, parseHM, todayISO, weekDays, weekStart, weekdayIdx } from '../lib/time'
 import type { Interval } from '../lib/time'
 import { errMsg } from '../lib/errors'
 
@@ -62,7 +63,7 @@ export function AvailabilityForm({ hours, locations, weekStartDay, region, load,
     setState((s) => ({ ...s, [day]: fn(s[day] ?? EMPTY_DAY) })); setDirty(true); setSaved(false)
   }
   const go = (delta: number) => {
-    if (dirty && !window.confirm('本周的修改还没有提交，确定要切换吗？')) return
+    if (dirty && !window.confirm(t('本周的修改还没有提交，确定要切换吗？'))) return
     setWeek((w) => addDays(w, delta * 7))
   }
 
@@ -72,16 +73,16 @@ export function AvailabilityForm({ hours, locations, weekStartDay, region, load,
     for (const day of days) {
       const h = hours[weekdayIdx(day)]; const st = state[day]
       if (!st || !st.ranges.length) continue
-      if (!h) { errs[day] = '这天店铺休息'; continue }
+      if (!h) { errs[day] = t('这天店铺休息'); continue }
       for (const [a, b] of st.ranges) {
-        if (b <= a) { errs[day] = '结束时间要晚于开始时间'; break }
-        if (a < h.open || b > h.close) { errs[day] = `请在营业时间内填写（${fmtMin(h.open)} - ${fmtMin(h.close)}）`; break }
+        if (b <= a) { errs[day] = t('结束时间要晚于开始时间'); break }
+        if (a < h.open || b > h.close) { errs[day] = t('请在营业时间内填写（{a} - {b}）', { a: fmtMin(h.open), b: fmtMin(h.close) }); break }
       }
       if (errs[day]) continue
       for (const [a, b] of mergeIntervals(st.ranges)) entries.push({ day, start: a, end: b, note: st.note, locations: st.locs })
     }
     setErrors(errs)
-    if (Object.keys(errs).length) { toast('有几天的时间需要修改'); return }
+    if (Object.keys(errs).length) { toast(t('有几天的时间需要修改')); return }
     setSaving(true)
     try { await save(week, entries); setDirty(false); setSaved(true); onSaved?.() } catch (e) { toast(errMsg(e)) } finally { setSaving(false) }
   }
@@ -93,12 +94,12 @@ export function AvailabilityForm({ hours, locations, weekStartDay, region, load,
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1">
-          <Button variant="secondary" size="sm" onClick={() => go(-1)} disabled={week <= thisWeek} aria-label="上一周"><CaretLeft size={16} /></Button>
+          <Button variant="secondary" size="sm" onClick={() => go(-1)} disabled={week <= thisWeek} aria-label={t('上一周')}><CaretLeft size={16} /></Button>
           <span className="num min-w-[9.5rem] text-center text-sm font-medium">{weekLabel}</span>
-          <Button variant="secondary" size="sm" onClick={() => go(1)} aria-label="下一周"><CaretRight size={16} /></Button>
-          {week === thisWeek && <span className="ml-2 text-xs text-mute">本周</span>}
+          <Button variant="secondary" size="sm" onClick={() => go(1)} aria-label={t('下一周')}><CaretRight size={16} /></Button>
+          {week === thisWeek && <span className="ml-2 text-xs text-mute">{t('本周')}</span>}
         </div>
-        <p className="text-xs text-mute">{loading ? '' : `这一周已填 ${filled} 天，没填的天数视为不能上班`}</p>
+        <p className="text-xs text-mute">{loading ? '' : t('这一周已填 {n} 天，没填的天数视为不能上班', { n: filled })}</p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -114,11 +115,11 @@ export function AvailabilityForm({ hours, locations, weekStartDay, region, load,
 
       <div className="sticky bottom-0 -mx-4 mt-5 flex items-center justify-between gap-3 border-t border-line bg-bg/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-panel sm:border">
         <p className={cn('flex items-center gap-1.5 text-sm', saved ? 'text-avail' : 'text-mute')}>
-          {saved ? <><CheckCircle size={18} weight="fill" />已提交，店长可以看到了</> : dirty ? '有未提交的修改' : '修改后记得提交'}
+          {saved ? <><CheckCircle size={18} weight="fill" />{t('已提交，店长可以看到了')}</> : dirty ? t('有未提交的修改') : t('修改后记得提交')}
         </p>
-        <Button variant="primary" onClick={submit} disabled={saving || loading || !canSubmit}>{saving ? '提交中...' : '提交本周'}</Button>
+        <Button variant="primary" onClick={submit} disabled={saving || loading || !canSubmit}>{saving ? t('提交中...') : t('提交本周')}</Button>
       </div>
-      {!canSubmit && <p className="mt-2 text-right text-xs text-mute">先在上面填写名字才能提交</p>}
+      {!canSubmit && <p className="mt-2 text-right text-xs text-mute">{t('先在上面填写名字才能提交')}</p>}
     </div>
   )
 }
@@ -142,13 +143,13 @@ function DayRow({ day, hours, state, locations, region, error, past, onChange }:
   return (
     <div className={cn('grid gap-3 rounded-panel border bg-surface p-4 md:grid-cols-[112px_1fr]', error ? 'border-danger' : 'border-line', (past || closed) && 'opacity-60')}>
       <div>
-        <p className="text-sm font-semibold">{DAY_LABELS[idx]}</p>
+        <p className="text-sm font-semibold">{dayLabel(idx)}</p>
         <p className="num text-xs text-mute">{fmtDay(day)}</p>
         {hours && <p className="num mt-1 text-[11px] text-faint">{fmtMin(hours.open)} - {fmtMin(hours.close)}</p>}
-        {holiday && <p className="mt-1 text-[11px] font-medium text-warn" title={holidayLabel(holiday)}>{holiday.zh}</p>}
+        {holiday && <p className="mt-1 text-[11px] font-medium text-warn" title={holidayLabel(holiday)}>{holidayName(holiday)}</p>}
       </div>
       {closed ? (
-        <p className="self-center text-sm text-mute">店铺休息</p>
+        <p className="self-center text-sm text-mute">{t('店铺休息')}</p>
       ) : (
         <div className="flex flex-col gap-3">
           {/* 时间条：一眼看出这天填了哪些时段 */}
@@ -160,19 +161,19 @@ function DayRow({ day, hours, state, locations, region, error, past, onChange }:
           <div className="flex flex-wrap items-center gap-2">
             {state.ranges.map(([a, b], i) => (
               <div key={i} className="flex items-center gap-1.5 rounded-control border border-line bg-bg px-1.5 py-1">
-                <input type="time" step={900} value={fmtMin(a)} onChange={(e) => e.target.value && setRange(i, 0, e.target.value)} aria-label="开始时间" className="num h-7 w-[86px] bg-transparent text-sm focus:outline-none" />
+                <input type="time" step={900} value={fmtMin(a)} onChange={(e) => e.target.value && setRange(i, 0, e.target.value)} aria-label={t('开始时间')} className="num h-7 w-[86px] bg-transparent text-sm focus:outline-none" />
                 <span className="text-faint">-</span>
-                <input type="time" step={900} value={fmtMin(b)} onChange={(e) => e.target.value && setRange(i, 1, e.target.value)} aria-label="结束时间" className="num h-7 w-[86px] bg-transparent text-sm focus:outline-none" />
-                <button onClick={() => onChange((d) => ({ ...d, ranges: d.ranges.filter((_, j) => j !== i) }))} aria-label="删除时段" className="press rounded p-1 text-faint hover:text-danger"><Trash size={15} /></button>
+                <input type="time" step={900} value={fmtMin(b)} onChange={(e) => e.target.value && setRange(i, 1, e.target.value)} aria-label={t('结束时间')} className="num h-7 w-[86px] bg-transparent text-sm focus:outline-none" />
+                <button onClick={() => onChange((d) => ({ ...d, ranges: d.ranges.filter((_, j) => j !== i) }))} aria-label={t('删除时段')} className="press rounded p-1 text-faint hover:text-danger"><Trash size={15} /></button>
               </div>
             ))}
-            <Button size="sm" variant="secondary" onClick={() => onChange((d) => ({ ...d, ranges: [[hours!.open, hours!.close]] }))}><Sun size={15} />全天</Button>
-            <Button size="sm" variant="ghost" onClick={addRange}><Plus size={15} />{state.ranges.length ? '再加一段' : '选时段'}</Button>
-            {state.ranges.length === 0 && <span className="text-xs text-faint">这天不能上班</span>}
+            <Button size="sm" variant="secondary" onClick={() => onChange((d) => ({ ...d, ranges: [[hours!.open, hours!.close]] }))}><Sun size={15} />{t('全天')}</Button>
+            <Button size="sm" variant="ghost" onClick={addRange}><Plus size={15} />{state.ranges.length ? t('再加一段') : t('选时段')}</Button>
+            {state.ranges.length === 0 && <span className="text-xs text-faint">{t('这天不能上班')}</span>}
           </div>
           {state.ranges.length > 0 && locations.length > 1 && (
-            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="可上班的门店">
-              <span className="mr-1 text-xs text-mute">可去的门店</span>
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t('可上班的门店')}>
+              <span className="mr-1 text-xs text-mute">{t('可去的门店')}</span>
               {locations.map((l) => {
                 const on = state.locs.includes(l.id)
                 return (
@@ -183,11 +184,11 @@ function DayRow({ day, hours, state, locations, region, error, past, onChange }:
                   </button>
                 )
               })}
-              <span className="text-xs text-faint">{state.locs.length === 0 ? '没选 = 哪家都可以' : ''}</span>
+              <span className="text-xs text-faint">{state.locs.length === 0 ? t('没选 = 哪家都可以') : ''}</span>
             </div>
           )}
           {state.ranges.length > 0 && (
-            <Input value={state.note} onChange={(e) => onChange((d) => ({ ...d, note: e.target.value }))} placeholder="备注，例如：下午有课，最好排晚班" maxLength={200} aria-label="备注" className="h-9" />
+            <Input value={state.note} onChange={(e) => onChange((d) => ({ ...d, note: e.target.value }))} placeholder={t('备注，例如：下午有课，最好排晚班')} maxLength={200} aria-label={t('备注')} className="h-9" />
           )}
           {error && <p className="text-xs text-danger" role="alert">{error}</p>}
         </div>

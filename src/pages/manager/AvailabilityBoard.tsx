@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { Badge, Button, Empty, Segmented, Skeleton, cn, useToast } from '../../components/ui'
 import { holidayLabel, holidayOn } from '../../lib/holidays'
+import { translate as t } from '../../i18n/core'
 import { useManager } from './ManagerLayout'
 import { api } from '../../data'
 import { errMsg } from '../../lib/errors'
 import type { Availability } from '../../lib/types'
-import { DAY_LABELS, addDays, fmtDay, fmtMin, fmtRangeShort, mergeIntervals, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
+import { addDays, dayLabel, fmtMD, fmtMin, fmtRangeShort, mergeIntervals, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
 
 export default function AvailabilityBoard() {
   const { shop, locations, members } = useManager()
@@ -39,21 +40,21 @@ export default function AvailabilityBoard() {
   }
   const headcount = (day: string) => new Set((rows ?? []).filter((r) => r.day === day).map((r) => r.member_id)).size
 
-  if (members.length === 0) return <Empty title="还没有员工报班" hint="把店铺的报班链接发给员工，他们填完后会出现在这里。链接在「设置」页。" />
+  if (members.length === 0) return <Empty title={t('还没有员工报班')} hint={t('把店铺的报班链接发给员工，他们填完后会出现在这里。链接在「设置」页。')} />
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1">
-          <Button size="sm" onClick={() => setWeek(addDays(week, -7))} aria-label="上一周"><CaretLeft size={16} /></Button>
+          <Button size="sm" onClick={() => setWeek(addDays(week, -7))} aria-label={t('上一周')}><CaretLeft size={16} /></Button>
           <span className="num min-w-[10rem] text-center text-sm font-medium">{fmtRangeShort(days[0], days[6])}</span>
-          <Button size="sm" onClick={() => setWeek(addDays(week, 7))} aria-label="下一周"><CaretRight size={16} /></Button>
+          <Button size="sm" onClick={() => setWeek(addDays(week, 7))} aria-label={t('下一周')}><CaretRight size={16} /></Button>
         </div>
-        {locations.length > 1 && <Segmented size="sm" value={loc} onChange={setLoc} options={[{ value: 'all', label: '全部门店' }, ...locations.map((l) => ({ value: l.id, label: l.name }))]} />}
+        {locations.length > 1 && <Segmented size="sm" value={loc} onChange={setLoc} options={[{ value: 'all', label: t('全部门店') }, ...locations.map((l) => ({ value: l.id, label: l.name }))]} />}
         {rows && (
           <p className="text-sm text-mute">
-            <span className="num font-medium text-ink">{sorted.length - missing.length}</span> / {sorted.length} 人已报班
-            {missing.length > 0 && <span>，还没报：{missing.map((m) => m.name).join('、')}</span>}
+            <span className="num font-medium text-ink">{sorted.length - missing.length}</span> / {sorted.length} {t('人已报班')}
+            {missing.length > 0 && <span>{t('，还没报：')}{missing.map((m) => m.name).join(t('、'))}</span>}
           </p>
         )}
       </div>
@@ -63,11 +64,11 @@ export default function AvailabilityBoard() {
           <table className="w-full min-w-[820px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-line text-left">
-                <th className="sticky left-0 z-10 w-36 bg-surface px-4 py-3 text-xs font-medium text-mute">员工</th>
+                <th className="sticky left-0 z-10 w-36 bg-surface px-4 py-3 text-xs font-medium text-mute">{t('员工')}</th>
                 {days.map((d) => (
                   <th key={d} className="px-3 py-3 text-xs font-medium text-mute">
-                    <span className="text-ink">{DAY_LABELS[weekdayIdx(d)]}</span>{holidayOn(d, shop.region) && <span className="ml-1 font-medium text-warn" title={holidayLabel(holidayOn(d, shop.region)!)}>假</span>} <span className="num">{fmtDay(d).replace('月', '/').replace('日', '')}</span>
-                    <div className="num mt-0.5 font-normal text-faint">{shop.hours[weekdayIdx(d)] ? `${headcount(d)} 人可上` : '休息'}</div>
+                    <span className="text-ink">{dayLabel(weekdayIdx(d))}</span>{holidayOn(d, shop.region) && <span className="ml-1 font-medium text-warn" title={holidayLabel(holidayOn(d, shop.region)!)}>{t('假')}</span>} <span className="num">{fmtMD(d)}</span>
+                    <div className="num mt-0.5 font-normal text-faint">{shop.hours[weekdayIdx(d)] ? t('{n} 人可上', { n: headcount(d) }) : t('休息')}</div>
                   </th>
                 ))}
               </tr>
@@ -78,20 +79,20 @@ export default function AvailabilityBoard() {
                   <td className="sticky left-0 z-10 bg-surface px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <span className="font-medium">{m.name}</span>
-                      {m.status === 'trial' && <Badge tone="warn">试工</Badge>}
+                      {m.status === 'trial' && <Badge tone="warn">{t('试工')}</Badge>}
                     </div>
-                    {!submittedIds.has(m.id) && <span className="text-xs text-faint">未报班</span>}
+                    {!submittedIds.has(m.id) && <span className="text-xs text-faint">{t('未报班')}</span>}
                   </td>
                   {days.map((d) => {
                     const c = cell(m.id, d)
                     return (
                       <td key={d} className={cn('px-3 py-3 align-top', c.closed && 'bg-sunken/60')} title={c.note}>
                         {c.closed ? <span className="text-faint">-</span>
-                          : c.full ? <span className="rounded bg-avail/15 px-1.5 py-0.5 text-xs font-medium text-avail">全天</span>
+                          : c.full ? <span className="rounded bg-avail/15 px-1.5 py-0.5 text-xs font-medium text-avail">{t('全天')}</span>
                           : c.merged.length ? (
                             <div className="flex flex-col gap-1">
                               {c.merged.map(([a, b], i) => <span key={i} className="num w-fit rounded bg-avail/15 px-1.5 py-0.5 text-xs text-avail">{fmtMin(a)}-{fmtMin(b)}</span>)}
-                              {c.only.length > 0 && <span className="max-w-[120px] truncate text-[11px] text-accent">仅 {c.only.join('、')}</span>}
+                              {c.only.length > 0 && <span className="max-w-[120px] truncate text-[11px] text-accent">{t('仅')} {c.only.join(t('、'))}</span>}
                               {c.note && <span className="max-w-[120px] truncate text-[11px] text-mute">{c.note}</span>}
                             </div>
                           ) : <span className="text-faint">-</span>}
