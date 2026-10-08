@@ -8,6 +8,8 @@
 <h3 align="center">Shift scheduling for small shops</h3>
 <p align="center">submit availability online · drag shifts onto a timeline · add the schedule to calendar</p>
 
+<p align="center"><a href="https://shift-scheduler-pi-ten.vercel.app/"><b>Open ShiftBar →</b></a></p>
+
 <p align="center"><a href="README.md">中文</a> · English</p>
 
 <p align="center">
@@ -89,7 +91,7 @@ The **table style** lists number, name, start and end time and position, with tr
 
 ### Managers: first time
 
-1. **Sign up** (choose "Manager"), then **create your shop**. Give it a name and pick a position preset (tea / coffee shop, restaurant, retail), or choose "I'll define my own".
+1. Open [ShiftBar](https://shift-scheduler-pi-ten.vercel.app/) and **sign up** (choose "Manager"), then **create your shop**. Give it a name and pick a position preset (tea / coffee shop, restaurant, retail), or choose "I'll define my own".
 2. Go to **Settings > Shop**:
    - set the **opening hours** for each day (tick "Closed" for days off; if you stay open past midnight, just enter the closing time as `01:00` and it is read as the next day);
    - adjust your **position tags**;
@@ -111,7 +113,7 @@ A red outline means the shift is outside the person's availability, overlaps ano
 
 ### Staff: see your schedule and add it to your calendar
 
-1. **Sign up** (choose "Staff").
+1. Open [ShiftBar](https://shift-scheduler-pi-ten.vercel.app/) and **sign up** (choose "Staff").
 2. Enter the **shop code** from your manager (the last part of the availability link after `/s/`; managers can also find it in Settings) and your name. **Use the same name you used when submitting availability** and what you submitted earlier is linked to your account automatically.
 3. **My shifts** shows your published shifts, and the left side adds up your hours for the week, two weeks or month.
 4. Click **Export to calendar** and import the downloaded `.ics` file into your phone or computer calendar.
