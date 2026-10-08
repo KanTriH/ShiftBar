@@ -137,6 +137,24 @@ export function createDemoApi(): Api {
       db.session = u.id; commit(); emit()
     },
     async signOut() { db.session = null; commit(); emit() },
+    async requestPasswordReset() { await delay() }, // 演示模式不发邮件
+    async updatePassword() { await delay() }, // 演示模式不校验密码
+    async deleteAccount() {
+      await delay()
+      const u = me(); if (!u) throw new Error('not_authenticated')
+      // 与数据库函数 delete_my_account 一致：店长名下的店铺连同全部数据，员工自己的员工记录连同报班和班次
+      const ownedShops = new Set(db.shops.filter((s) => s.owner_id === u.id).map((s) => s.id))
+      const myMembers = new Set(db.members.filter((m) => m.user_id === u.id).map((m) => m.id))
+      db.shops = db.shops.filter((s) => !ownedShops.has(s.id))
+      for (const key of ['locations', 'positions', 'members', 'availability', 'shifts', 'tasks', 'publications'] as const) {
+        ;(db as unknown as Record<string, { shop_id: string }[]>)[key] = (db[key] as { shop_id: string }[]).filter((r) => !ownedShops.has(r.shop_id))
+      }
+      db.members = db.members.filter((m) => !myMembers.has(m.id))
+      db.availability = db.availability.filter((a) => !myMembers.has(a.member_id))
+      db.shifts = db.shifts.filter((s) => !myMembers.has(s.member_id))
+      db.users = db.users.filter((x) => x.id !== u.id)
+      db.session = null; commit(); emit()
+    },
 
     async getOwnedShop() {
       await delay()

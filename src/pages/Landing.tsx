@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight } from '@phosphor-icons/react'
-import { Button, Input, Logo } from '../components/ui'
+import { Button, Input, Logo, useToast } from '../components/ui'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../data'
 import { DEMO_SHOP_CODE } from '../data/demoApi'
@@ -44,6 +44,14 @@ export default function Landing() {
   const { user } = useAuth()
   const nav = useNavigate()
   const [code, setCode] = useState('')
+  const toast = useToast()
+  // 从别的页面带过来的一次性提示（例如注销账号成功）
+  useEffect(() => {
+    try {
+      const msg = sessionStorage.getItem('shift-flash')
+      if (msg) { sessionStorage.removeItem('shift-flash'); toast(msg) }
+    } catch { /* ignore */ }
+  }, [toast])
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-4 sm:px-6">
       <header className="flex h-16 items-center justify-between">

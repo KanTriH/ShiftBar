@@ -18,6 +18,7 @@ export function SettingsTabs() {
       <nav className="mt-4 flex gap-1" aria-label={t('设置分类')}>
         <NavLink to="/manager/settings" end className={tab}>{t('店铺')}</NavLink>
         <NavLink to="/manager/settings/preferences" className={tab}>{t('排班偏好')}</NavLink>
+        <NavLink to="/manager/settings/account" className={tab}>{t('账号')}</NavLink>
       </nav>
     </div>
   )

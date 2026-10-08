@@ -9,6 +9,11 @@ const MAP: Record<string, string> = {
   'Invalid login credentials': '邮箱或密码不正确',
   'User already registered': '该邮箱已注册，请直接登录',
   'Email not confirmed': '邮箱尚未确认，请先点击邮件中的确认链接',
+  'New password should be different': '新密码不能和旧密码相同',
+  'at least 6 characters': '密码至少 6 位',
+  'Auth session missing': '重置链接已失效，请重新申请',
+  'rate limit': '操作太频繁，请过几分钟再试',
+  'For security purposes': '操作太频繁，请过几分钟再试',
 }
 export function errMsg(e: unknown) {
   const raw = e instanceof Error ? e.message : String(e)

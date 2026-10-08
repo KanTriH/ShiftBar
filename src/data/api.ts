@@ -13,6 +13,12 @@ export interface Api {
   signUp(email: string, password: string, role: Role): Promise<void>
   signIn(email: string, password: string): Promise<void>
   signOut(): Promise<void>
+  /** 发送重置密码邮件（链接指向 /reset-password） */
+  requestPasswordReset(email: string): Promise<void>
+  /** 设置新密码：用于重置链接带来的登录状态，或已登录用户 */
+  updatePassword(newPassword: string): Promise<void>
+  /** 彻底注销当前账号并删除其全部数据，之后会自动退出登录 */
+  deleteAccount(): Promise<void>
   // 店长
   getOwnedShop(): Promise<Shop | null>
   createShop(name: string, positionNames: string[]): Promise<Shop>

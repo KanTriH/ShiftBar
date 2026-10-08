@@ -31,6 +31,19 @@ export function createSupabaseApi(): Api {
       if (error) throw new Error(error.message)
     },
     async signOut() { await sb.auth.signOut() },
+    async requestPasswordReset(email) {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` })
+      if (error) throw new Error(error.message)
+    },
+    async updatePassword(newPassword) {
+      const { error } = await sb.auth.updateUser({ password: newPassword })
+      if (error) throw new Error(error.message)
+    },
+    async deleteAccount() {
+      unwrap(await sb.rpc('delete_my_account'))
+      // 用户已被删除，服务端的会话令牌不存在了，只清理本地登录状态
+      await sb.auth.signOut({ scope: 'local' })
+    },
 
     async getOwnedShop() {
       const u = (await sb.auth.getSession()).data.session?.user
