@@ -62,8 +62,6 @@ export const EN: Record<string, string> = {
   '这个名字已经存在': "This name already exists",
 
   // ---- 首页 ----
-  '小店排班，': "Shift scheduling for small shops,",
-  '拖一拖就排好': "just drag to plan",
   '员工在线报班，店长在时间轴上拖拽排班，发布后员工一键导入日历。': "Staff submit availability online, managers drag shifts onto a timeline, and staff add the published schedule to their calendar in one click.",
   '我是店长': "I'm a manager",
   '我是员工，用店铺码报班': "I'm staff: submit availability with a shop code",

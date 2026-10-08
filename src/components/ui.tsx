@@ -138,11 +138,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 // 颜色走 CSS 变量（见 index.css），所以会跟着浅色 / 深色模式切换。
 const LOGO_CELLS: [number, number][] = [[0, 0], [16, 0], [32, 0], [48, 0], [48, 16], [0, 32], [16, 32], [32, 32]]
 
-/** ShiftBar 品牌标识：图形 + 字标。品牌名不翻译。 */
+/**
+ * ShiftBar 品牌标识：图形 + 字标。品牌名不翻译。
+ * 尺寸全部用 em，整个标识跟着外层的字号等比缩放：想放大就给 className 一个 text-* 字号。
+ */
 export function Logo({ className }: { className?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-2', className)}>
-      <svg width="27" height="20" viewBox="0 0 60 44" aria-hidden>
+    <span className={cn('inline-flex items-center gap-[0.5em]', className)}>
+      <svg viewBox="0 0 60 44" style={{ width: '1.7em', height: '1.25em' }} aria-hidden>
         {LOGO_CELLS.map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width="12" height="12" rx="3" fill="var(--logo-cell)" />)}
         <rect x="0" y="16" width="44" height="12" rx="6" fill="var(--logo-bar)" />
         <rect x="48" y="32" width="12" height="12" rx="3" fill="var(--logo-dot)" />
