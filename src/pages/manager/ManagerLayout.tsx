@@ -6,6 +6,7 @@ import { api } from '../../data'
 import { useAuth } from '../../auth/AuthContext'
 import { errMsg } from '../../lib/errors'
 import type { Location, Member, Position, Shop } from '../../lib/types'
+import { isStaffInWrongPlace } from '../../lib/landing'
 import { POSITION_PRESETS } from '../../lib/types'
 import { LangSwitch } from '../../i18n'
 import { translate as t } from '../../i18n/core'
@@ -41,7 +42,21 @@ export default function ManagerLayout() {
   useEffect(() => {
     if (loading) return
     if (!user) { nav('/auth?role=manager&next=/manager', { replace: true }); return }
-    api.getOwnedShop().then(setShop).catch(() => setShop(null))
+    let alive = true
+    ;(async () => {
+      try {
+        const owned = await api.getOwnedShop()
+        if (!alive) return
+        // 没有自己的店铺：如果其实是已经绑定了店铺的员工（比如从 /manager 的地址进来、登录后被带回这里），
+        // 就送去员工页，而不是让 TA 看到"创建你的店铺"
+        if (!owned && isStaffInWrongPlace({ hasOwnedShop: false, hasMembership: !!(await api.getMembership()) })) {
+          if (alive) nav('/me', { replace: true })
+          return
+        }
+        if (alive) setShop(owned)
+      } catch { if (alive) setShop(null) }
+    })()
+    return () => { alive = false }
   }, [user, loading, nav])
 
   const reloadLocations = useCallback(async () => { if (shop) setLocations(await api.listLocations(shop.id)) }, [shop])

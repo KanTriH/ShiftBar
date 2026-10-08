@@ -8,6 +8,7 @@ import { errMsg } from '../lib/errors'
 import { LangSwitch } from '../i18n'
 import { translate as t } from '../i18n/core'
 import type { Role } from '../lib/types'
+import { homeFor } from '../lib/landing'
 
 /** 登录后按身份分流：有店铺去店长页，是员工去员工页 */
 export function Redirector() {
@@ -17,9 +18,14 @@ export function Redirector() {
     if (loading) return
     if (!user) { nav('/auth', { replace: true }); return }
     ;(async () => {
-      if (await api.getOwnedShop()) return nav('/manager', { replace: true })
-      if (await api.getMembership()) return nav('/me', { replace: true })
-      nav(user.role === 'manager' ? '/manager' : '/me', { replace: true })
+      try {
+        const hasOwnedShop = !!(await api.getOwnedShop())
+        const hasMembership = !hasOwnedShop && !!(await api.getMembership())
+        nav(homeFor({ hasOwnedShop, hasMembership, role: user.role }), { replace: true })
+      } catch {
+        // 查询失败时按注册时选的身份兜底，不要卡在"正在进入..."
+        nav(homeFor({ hasOwnedShop: false, hasMembership: false, role: user.role }), { replace: true })
+      }
     })()
   }, [user, loading, nav])
   return <div className="grid min-h-[100dvh] place-items-center text-sm text-mute">{t('正在进入...')}</div>
