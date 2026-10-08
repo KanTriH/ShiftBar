@@ -134,16 +134,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 /* ---------- Logo ---------- */
+// 图形与 public/brand/shiftbar-mark-*.svg 完全一致：4×3 的方格，中间一条长"药丸"就是一个班次。
+// 颜色走 CSS 变量（见 index.css），所以会跟着浅色 / 深色模式切换。
+const LOGO_CELLS: [number, number][] = [[0, 0], [16, 0], [32, 0], [48, 0], [48, 16], [0, 32], [16, 32], [32, 32]]
+
+/** ShiftBar 品牌标识：图形 + 字标。品牌名不翻译。 */
 export function Logo({ className }: { className?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-2 font-semibold tracking-tight', className)}>
-      <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden>
-        <rect width="32" height="32" rx="8" fill="var(--accent)" />
-        <rect x="6" y="9" width="12" height="4" rx="2" fill="var(--accent-ink)" />
-        <rect x="11" y="15" width="15" height="4" rx="2" fill="var(--accent-ink)" opacity=".85" />
-        <rect x="6" y="21" width="9" height="4" rx="2" fill="var(--accent-ink)" opacity=".65" />
+    <span className={cn('inline-flex items-center gap-2', className)}>
+      <svg width="27" height="20" viewBox="0 0 60 44" aria-hidden>
+        {LOGO_CELLS.map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width="12" height="12" rx="3" fill="var(--logo-cell)" />)}
+        <rect x="0" y="16" width="44" height="12" rx="6" fill="var(--logo-bar)" />
+        <rect x="48" y="32" width="12" height="12" rx="3" fill="var(--logo-dot)" />
       </svg>
-      {t('班表')}
+      <span className="font-logo text-[1.15em] font-semibold leading-none" style={{ color: 'var(--logo-ink)' }}>ShiftBar</span>
     </span>
   )
 }
