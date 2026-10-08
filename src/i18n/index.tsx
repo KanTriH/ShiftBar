@@ -21,7 +21,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const setLang = useCallback((l: Lang) => { setLangValue(l); setLangState(l) }, [])
   useEffect(() => {
     setLangValue(lang)
-    document.title = translate('班表 - 小店排班工具')
+    document.title = translate('ShiftBar - 小店排班工具')
   }, [lang])
   return <Ctx.Provider value={{ lang, setLang, t: translate }}>{children}</Ctx.Provider>
 }

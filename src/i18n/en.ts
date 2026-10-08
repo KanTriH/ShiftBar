@@ -4,7 +4,7 @@
 export const EN: Record<string, string> = {
   // ---- 通用 ----
   '班表': "Shifts",
-  '班表 - 小店排班工具': "Shifts - scheduling for small shops",
+  'ShiftBar - 小店排班工具': "ShiftBar - scheduling for small shops",
   '关闭': "Close",
   '添加': "Add",
   '删除': "Delete",
