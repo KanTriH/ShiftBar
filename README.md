@@ -23,6 +23,7 @@ npm run dev
    1. [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)：创建基础表、行级安全策略（RLS）和访客用的 RPC 函数。
    2. [`supabase/migrations/0002_locations_tasks_settings.sql`](supabase/migrations/0002_locations_tasks_settings.sql)：多门店、当日任务、店铺设置（一周起始日 / 假日地区 / PDF 样式）。
    3. [`supabase/migrations/0003_overnight_shifts.sql`](supabase/migrations/0003_overnight_shifts.sql)：支持跨午夜排班。
+   4. [`supabase/migrations/0004_delete_account.sql`](supabase/migrations/0004_delete_account.sql)：用户自己注销账号（`delete_my_account()` 函数）。
 
    已经运行过前面迁移的数据库只需要按顺序补运行后面的，不会丢数据。**升级时先运行迁移，再部署新版前端。** 需要从头重来时先运行 [`supabase/reset.sql`](supabase/reset.sql)（会清空全部数据）。
 3. **Authentication > Providers > Email**：开发阶段建议关闭 "Confirm email"，否则注册后要先点邮件里的确认链接才能登录。
@@ -68,6 +69,18 @@ npm run dev
 实现很轻量，没有引入第三方库：代码里用中文原文当 key，写作 `t('保存')`、`t('已填 {n} 天', { n: 3 })`，英文词典在 [`src/i18n/en.ts`](src/i18n/en.ts)。**新增界面文案时，在代码里写 `t('中文')`，再到 `en.ts` 补一条英文**；漏了的话英文界面会退回显示中文，不会报错。日期（`9月28日` / `Sep 28`）、星期、法定假日名称、PDF 里的标题和表头也跟随语言。
 
 店长录入的内容（店名、员工名、岗位名、门店名、当日任务）按原样显示，不会被翻译。
+
+## 忘记密码与注销账号
+
+**忘记密码**：登录页的「忘记密码？」会发一封重置邮件，邮件里的链接回到 `/reset-password` 设置新密码。无论邮箱是否注册过，页面都显示同样的提示，避免被人探测哪些邮箱注册过。已登录的用户也可以在「设置 > 账号」（店长）或员工页左下角点「修改密码」。
+
+上线前要在 Supabase 里做一次配置，否则邮件里的链接会被拒绝：**Authentication > URL Configuration**，把部署域名填进 **Site URL**，并在 **Redirect URLs** 里加入 `https://你的域名/reset-password`（本地开发再加 `http://localhost:5173/reset-password`）。Supabase 自带的邮件服务有发送额度限制，用户多了需要配置自己的 SMTP。
+
+**注销账号**：店长在「设置 > 账号」，员工在员工页左下角。需要输入自己的邮箱确认。浏览器端没有权限删除 Supabase 的登录用户（那需要 `service_role` 密钥，绝不能放到前端），所以由迁移 0004 里的数据库函数 `delete_my_account()` 完成，它只能删除"当前登录的自己"：
+
+- 店长：账号、名下所有店铺，以及店铺下的门店、岗位、员工记录、报班、班次、当日任务、发布记录。员工自己的账号不会被删除，但会看不到班表。
+- 员工：账号，以及自己的员工记录和这些记录下的报班、班次。
+- 删除后无法恢复。
 
 ## 跨午夜排班
 

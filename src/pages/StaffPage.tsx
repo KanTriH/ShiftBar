@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { CalendarCheck, CaretLeft, CaretRight, DownloadSimple, SignOut } from '@phosphor-icons/react'
 import { Badge, Button, Empty, Field, Input, Logo, Segmented, Skeleton, cn, useToast } from '../components/ui'
 import { AvailabilityForm } from '../components/AvailabilityForm'
+import { DeleteAccountModal } from '../components/DeleteAccountModal'
 import { api } from '../data'
 import { useAuth } from '../auth/AuthContext'
 import { buildIcs, downloadFile } from '../lib/ics'
@@ -45,6 +46,20 @@ export default function StaffPage() {
   )
 }
 
+/* ---------- 账号入口：修改密码 / 注销账号 ---------- */
+function AccountLinks({ shopName }: { shopName?: string }) {
+  const { user } = useAuth()
+  const [open, setOpen] = useState(false)
+  if (!user) return null
+  return (
+    <div className="flex flex-col items-start gap-1.5 text-sm">
+      <Link to="/reset-password" className="text-mute hover:text-ink">{t('修改密码')}</Link>
+      <button onClick={() => setOpen(true)} className="text-mute hover:text-danger">{t('注销账号')}</button>
+      <DeleteAccountModal open={open} onClose={() => setOpen(false)} email={user.email} role="staff" shopName={shopName} />
+    </div>
+  )
+}
+
 /* ---------- 绑定店铺 ---------- */
 function Claim({ onDone }: { onDone: () => void }) {
   const [code, setCode] = useState('')
@@ -65,6 +80,7 @@ function Claim({ onDone }: { onDone: () => void }) {
         {error && <p className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">{error}</p>}
         <Button type="submit" variant="primary" disabled={busy}>{busy ? t('绑定中...') : t('绑定')}</Button>
       </form>
+      <div className="mt-8 border-t border-line pt-4"><AccountLinks /></div>
     </div>
   )
 }
@@ -135,6 +151,8 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
           <Button className="mt-4 w-full" onClick={exportIcs}><DownloadSimple size={16} />{t('导出到日历')}</Button>
           <p className="mt-2 text-xs text-faint">{t('下载 .ics 文件，Google、Apple、Outlook 日历都能导入。')}</p>
         </div>
+
+        <AccountLinks shopName={shop.name} />
       </aside>
 
       <main className="min-w-0">
