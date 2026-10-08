@@ -1,6 +1,7 @@
 import { translate } from '../i18n/core'
 
-const MAP: Record<string, string> = {
+/** 报错关键字 -> 中文提示（显示时再按语言翻译）。导出给词典完整性测试用 */
+export const ERROR_MESSAGES: Record<string, string> = {
   shop_not_found: '找不到这家店铺，请检查店铺码',
   name_required: '请填写你的名字',
   name_claimed: '这个名字已被注册员工使用，请登录后填写，或换一个名字',
@@ -17,6 +18,6 @@ const MAP: Record<string, string> = {
 }
 export function errMsg(e: unknown) {
   const raw = e instanceof Error ? e.message : String(e)
-  for (const k of Object.keys(MAP)) if (raw.includes(k)) return translate(MAP[k])
+  for (const k of Object.keys(ERROR_MESSAGES)) if (raw.includes(k)) return translate(ERROR_MESSAGES[k])
   return translate(raw) || translate('出错了，请重试')
 }

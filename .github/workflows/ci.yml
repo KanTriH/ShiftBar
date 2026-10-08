@@ -1,0 +1,40 @@
+name: CI
+
+# 每次推送到 main、每个 PR 都自动跑：类型检查 -> 单元/业务测试 -> 构建。
+# 任何一步失败，PR 上会显示红叉。想强制"不通过就不能合并"，
+# 到 GitHub 仓库 Settings > Branches > 给 main 加保护规则，勾选 "Require status checks to pass" 并选择 "check"。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # vitest 5 / vite 8 需要 Node >= 22.12
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # 构建不需要真实的 Supabase 密钥；留空就是演示模式的构建
+          VITE_SUPABASE_URL: ''
+          VITE_SUPABASE_ANON_KEY: ''
