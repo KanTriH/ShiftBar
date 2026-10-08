@@ -22,8 +22,9 @@ npm run dev
 2. 打开 **SQL Editor > New query**，**按顺序**粘贴并运行：
    1. [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql)：创建基础表、行级安全策略（RLS）和访客用的 RPC 函数。
    2. [`supabase/migrations/0002_locations_tasks_settings.sql`](supabase/migrations/0002_locations_tasks_settings.sql)：多门店、当日任务、店铺设置（一周起始日 / 假日地区 / PDF 样式）。
+   3. [`supabase/migrations/0003_overnight_shifts.sql`](supabase/migrations/0003_overnight_shifts.sql)：支持跨午夜排班。
 
-   已经运行过 0001 的数据库只需要补运行 0002，不会丢数据。**升级时先运行迁移，再部署新版前端。** 需要从头重来时先运行 [`supabase/reset.sql`](supabase/reset.sql)（会清空全部数据）。
+   已经运行过前面迁移的数据库只需要按顺序补运行后面的，不会丢数据。**升级时先运行迁移，再部署新版前端。** 需要从头重来时先运行 [`supabase/reset.sql`](supabase/reset.sql)（会清空全部数据）。
 3. **Authentication > Providers > Email**：开发阶段建议关闭 "Confirm email"，否则注册后要先点邮件里的确认链接才能登录。
 4. **Project Settings > API** 复制 Project URL 和 anon public key：
 
@@ -68,10 +69,16 @@ npm run dev
 
 店长录入的内容（店名、员工名、岗位名、门店名、当日任务）按原样显示，不会被翻译。
 
+## 跨午夜排班
+
+营业到午夜以后的店（餐厅、酒吧、奶茶店晚班）可以把关门时间设到次日凌晨：设置 > 店铺 > 营业时间里，关门时间直接填 `01:00`，系统发现它早于开门时间，就自动当作次日（旁边会出现「次日」标记）。排班和报班同理：开始 17:45、结束填 `01:00`，就是跨午夜的班次。
+
+班次属于它**开始的那一天**，工时、发布、PDF 都按这一天计算；时间轴上用一条竖线标出午夜；导出日历时结束时间会落到次日的日期上。一个班次最长 24 小时，营业时间最晚可到次日 24:00。
+
 ## 已知限制
 
 - 访客报班只靠名字识别（和不登录的表单一样），同店重名的访客会写到同一条记录里。
-- 班次不能跨午夜；营业时间最晚到 24:00。
+- 跨午夜的班次只显示在它开始的那一天；同一个人前一晚的班延续到次日凌晨时，次日的排班页不会显示这一段，也不会检查和次日清晨班次的冲突。
 - 排班时间轴使用鼠标/触控笔拖拽，触屏手机上建议只用于查看。
 - 界面文案目前为简体中文，未做多语言。
 

@@ -50,10 +50,6 @@ export const EN: Record<string, string> = {
   '奶茶 / 咖啡店': "Tea / coffee shop",
   '餐厅': "Restaurant",
   '零售店': "Retail store",
-  '林晓': "Lin Xiao",
-  '周屿': "Zhou Yu",
-  '陈嘉禾': "Chen Jiahe",
-  '吴桐': "Wu Tong",
 
   // ---- 错误 / 提示 ----
   '找不到这家店铺，请检查店铺码': "Shop not found, please check the shop code",
@@ -249,6 +245,8 @@ export const EN: Record<string, string> = {
   '有多家门店、员工是同一批人的话，在这里添加。排班时按门店分别排，员工报班时可以选自己能去哪几家。只有一家门店时，这些选项不会出现。': "If you have several locations with the same pool of staff, add them here. Shifts are scheduled per location, and staff choose which ones they can work at. With a single location these options stay hidden.",
   '营业时间': "Opening hours",
   '排班时间轴和员工可填的范围以此为准。': "The scheduling timeline and what staff can fill in follow these hours.",
+  '营业到午夜以后？把关门时间填成次日的时刻，例如 01:00，系统会自动识别为次日。': "Open past midnight? Enter the closing time as the next day's time, e.g. 01:00. It is recognized as next day automatically.",
+  '次日': "Next day",
   '周一同步到全周': "Apply Monday to all days",
   '{day}开门': "{day} opening time",
   '{day}关门': "{day} closing time",

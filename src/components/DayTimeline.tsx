@@ -3,7 +3,7 @@ import { Trash, WarningCircle, X } from '@phosphor-icons/react'
 import { Badge, Button, Input, cn } from './ui'
 import type { Availability, DayHours, Member, Position, Shift, ShiftInput } from '../lib/types'
 import { translate as tr } from '../i18n/core'
-import { clamp, covers, fmtHours, fmtMin, mergeIntervals, parseHM, snap } from '../lib/time'
+import { clamp, covers, fmtHours, fmtMin, inputTime, isNextDay, mergeIntervals, parseEndAfter, parseStartIn, snap } from '../lib/time'
 
 const NAME_W = 168
 const ROW_H = 60
@@ -190,6 +190,8 @@ export function DayTimeline(props: Props) {
   const gridBg = `repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px ${60 * px}px)`
   const editShift = editing ? shifts.find((s) => s.id === editing.id) : undefined
   const left = (min: number) => (min - hours.open) * px
+  // 营业日跨过午夜时，在时间轴上画一条"次日"分界线
+  const crossesMidnight = hours.open < 1440 && hours.close > 1440
 
   return (
     <div className="relative">
@@ -215,12 +217,14 @@ export function DayTimeline(props: Props) {
           {/* 时间轴 */}
           <div className="relative" style={{ width: trackW }}>
             <div className="relative h-9 border-b border-line text-[11px] text-mute num" aria-hidden>
+              {crossesMidnight && <span className="absolute top-0.5 whitespace-nowrap text-[10px] font-medium text-warn" style={{ left: left(1440) + 4 }}>{tr('次日')}</span>}
               {ticks.map((t) => (
                 <span key={t} className={cn('absolute top-2.5', t === hours.open ? 'translate-x-1' : t === hours.close ? '-translate-x-full -ml-1' : '-translate-x-1/2')} style={{ left: left(t) }}>{fmtMin(t)}</span>
               ))}
             </div>
 
             <div ref={trackRef} className="relative" style={{ height: members.length * ROW_H, backgroundImage: gridBg }}>
+              {crossesMidnight && <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-warn/60" style={{ left: left(1440) }} />}
               {/* 行底 + 创建入口 */}
               {members.map((m, i) => (
                 <div key={m.id} onPointerDown={onLaneDown} className="absolute inset-x-0 cursor-crosshair border-b border-line" style={{ top: i * ROW_H, height: ROW_H }} data-lane />
@@ -334,11 +338,16 @@ function ShiftEditor({ shift, member, positions, hours, anchor, issue, onClose, 
   const W = 300
   const x = clamp(anchor.left, 12, window.innerWidth - W - 12)
   const below = anchor.bottom + 8 + 300 < window.innerHeight
+  // 输入 01:00 这类早于开始时间的时刻，按次日凌晨处理（见 time.ts）
   const setTime = (which: 'start' | 'end', v: string) => {
     if (!v) return
-    const t = which === 'start' ? parseHM(v) : parseHM(v, true)
-    if (which === 'start') { if (t >= hours.open && t < shift.end_min) onChange({ start_min: t }) }
-    else if (t <= hours.close && t > shift.start_min) onChange({ end_min: t })
+    if (which === 'start') {
+      const s = parseStartIn(v, hours.open)
+      if (s >= hours.open && s < shift.end_min) onChange({ start_min: s })
+    } else {
+      const e = parseEndAfter(v, shift.start_min)
+      if (e <= hours.close && e > shift.start_min) onChange({ end_min: e })
+    }
   }
   return (
     <>
@@ -360,9 +369,11 @@ function ShiftEditor({ shift, member, positions, hours, anchor, issue, onClose, 
           {positions.length === 0 && <span className="text-xs text-mute">{tr('还没有岗位标签，去「设置」里添加')}</span>}
         </div>
         <div className="mb-3 flex items-center gap-2">
-          <input type="time" step={900} value={fmtMin(shift.start_min)} onChange={(e) => setTime('start', e.target.value)} aria-label={tr('开始时间')} className="num h-9 flex-1 rounded-control border border-line bg-bg px-2 text-sm" />
+          {isNextDay(shift.start_min) && <span className="text-[10px] font-medium text-warn">{tr('次日')}</span>}
+          <input type="time" step={900} value={inputTime(shift.start_min)} onChange={(e) => setTime('start', e.target.value)} aria-label={tr('开始时间')} className="num h-9 flex-1 rounded-control border border-line bg-bg px-2 text-sm" />
           <span className="text-faint">-</span>
-          <input type="time" step={900} value={fmtMin(shift.end_min)} onChange={(e) => setTime('end', e.target.value)} aria-label={tr('结束时间')} className="num h-9 flex-1 rounded-control border border-line bg-bg px-2 text-sm" />
+          <input type="time" step={900} value={inputTime(shift.end_min)} onChange={(e) => setTime('end', e.target.value)} aria-label={tr('结束时间')} className="num h-9 flex-1 rounded-control border border-line bg-bg px-2 text-sm" />
+          {isNextDay(shift.end_min) && <span className="text-[10px] font-medium text-warn">{tr('次日')}</span>}
         </div>
         <Input value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => note !== shift.note && onChange({ note })} placeholder={tr('备注（员工可见）')} maxLength={200} className="h-9" aria-label={tr('备注')} />
         <div className="mt-3 flex justify-between">

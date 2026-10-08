@@ -4,7 +4,7 @@ import { Button, Input, Skeleton, cn, useToast } from './ui'
 import { holidayLabel, holidayName, holidayOn } from '../lib/holidays'
 import { translate as t } from '../i18n/core'
 import type { AvailEntry, WeekHours, WeekStartDay } from '../lib/types'
-import { addDays, dayLabel, fmtDay, fmtMin, mergeIntervals, parseHM, todayISO, weekDays, weekStart, weekdayIdx } from '../lib/time'
+import { addDays, dayLabel, fmtDay, fmtMin, inputTime, isNextDay, mergeIntervals, parseEndAfter, parseStartIn, todayISO, weekDays, weekStart, weekdayIdx } from '../lib/time'
 import type { Interval } from '../lib/time'
 import { errMsg } from '../lib/errors'
 
@@ -131,7 +131,7 @@ function DayRow({ day, hours, state, locations, region, error, past, onChange }:
   const idx = weekdayIdx(day)
   const closed = !hours
   const setRange = (i: number, which: 0 | 1, v: string) =>
-    onChange((d) => ({ ...d, ranges: d.ranges.map((r, j) => (j === i ? (which === 0 ? [parseHM(v), r[1]] : [r[0], parseHM(v, true)]) : r) as Interval) }))
+    onChange((d) => ({ ...d, ranges: d.ranges.map((r, j) => (j === i ? (which === 0 ? [parseStartIn(v, hours?.open ?? 0), r[1]] : [r[0], parseEndAfter(v, r[0])]) : r) as Interval) }))
   const addRange = () => {
     if (!hours) return
     const last = state.ranges[state.ranges.length - 1]
@@ -161,9 +161,11 @@ function DayRow({ day, hours, state, locations, region, error, past, onChange }:
           <div className="flex flex-wrap items-center gap-2">
             {state.ranges.map(([a, b], i) => (
               <div key={i} className="flex items-center gap-1.5 rounded-control border border-line bg-bg px-1.5 py-1">
-                <input type="time" step={900} value={fmtMin(a)} onChange={(e) => e.target.value && setRange(i, 0, e.target.value)} aria-label={t('开始时间')} className="num h-7 w-[86px] bg-transparent text-sm focus:outline-none" />
+                {isNextDay(a) && <span className="text-[10px] font-medium text-warn">{t('次日')}</span>}
+                <input type="time" step={900} value={inputTime(a)} onChange={(e) => e.target.value && setRange(i, 0, e.target.value)} aria-label={t('开始时间')} className="num h-7 w-[86px] bg-transparent text-sm focus:outline-none" />
                 <span className="text-faint">-</span>
-                <input type="time" step={900} value={fmtMin(b)} onChange={(e) => e.target.value && setRange(i, 1, e.target.value)} aria-label={t('结束时间')} className="num h-7 w-[86px] bg-transparent text-sm focus:outline-none" />
+                <input type="time" step={900} value={inputTime(b)} onChange={(e) => e.target.value && setRange(i, 1, e.target.value)} aria-label={t('结束时间')} className="num h-7 w-[86px] bg-transparent text-sm focus:outline-none" />
+                {isNextDay(b) && <span className="text-[10px] font-medium text-warn">{t('次日')}</span>}
                 <button onClick={() => onChange((d) => ({ ...d, ranges: d.ranges.filter((_, j) => j !== i) }))} aria-label={t('删除时段')} className="press rounded p-1 text-faint hover:text-danger"><Trash size={15} /></button>
               </div>
             ))}

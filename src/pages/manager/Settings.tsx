@@ -7,7 +7,7 @@ import { errMsg } from '../../lib/errors'
 import type { Location, Position, WeekHours } from '../../lib/types'
 import { SettingsTabs } from './ScheduleSettings'
 import { POSITION_COLORS } from '../../lib/types'
-import { dayLabel, fmtMin, parseHM } from '../../lib/time'
+import { dayLabel, inputTime, isNextDay, parseEndAfter, parseHM } from '../../lib/time'
 import { translate as t } from '../../i18n/core'
 
 export default function Settings() {
@@ -58,6 +58,7 @@ export default function Settings() {
           <div>
             <h2 className="text-base font-semibold">{t('营业时间')}</h2>
             <p className="mt-1 text-sm text-mute">{t('排班时间轴和员工可填的范围以此为准。')}</p>
+            <p className="mt-1 text-sm text-mute">{t('营业到午夜以后？把关门时间填成次日的时刻，例如 01:00，系统会自动识别为次日。')}</p>
           </div>
           <Button size="sm" variant="ghost" onClick={() => saveShop({ hours: shop.hours.map(() => shop.hours[0] ?? { open: 540, close: 1320 }) })}>{t('周一同步到全周')}</Button>
         </div>
@@ -70,9 +71,10 @@ export default function Settings() {
               </label>
               {h && (
                 <div className="ml-auto flex items-center gap-2">
-                  <input type="time" step={900} value={fmtMin(h.open)} aria-label={t('{day}开门', { day: dayLabel(i) })} onChange={(e) => e.target.value && parseHM(e.target.value) < h.close && setDay(i, { ...h, open: parseHM(e.target.value) })} className="num h-9 rounded-control border border-line bg-bg px-2 text-sm" />
+                  <input type="time" step={900} value={inputTime(h.open)} aria-label={t('{day}开门', { day: dayLabel(i) })} onChange={(e) => e.target.value && parseHM(e.target.value) < h.close && h.close - parseHM(e.target.value) <= 1440 && setDay(i, { ...h, open: parseHM(e.target.value) })} className="num h-9 rounded-control border border-line bg-bg px-2 text-sm" />
                   <span className="text-faint">-</span>
-                  <input type="time" step={900} value={fmtMin(h.close)} aria-label={t('{day}关门', { day: dayLabel(i) })} onChange={(e) => e.target.value && parseHM(e.target.value, true) > h.open && setDay(i, { ...h, close: parseHM(e.target.value, true) })} className="num h-9 rounded-control border border-line bg-bg px-2 text-sm" />
+                  <input type="time" step={900} value={inputTime(h.close)} aria-label={t('{day}关门', { day: dayLabel(i) })} onChange={(e) => e.target.value && setDay(i, { ...h, close: parseEndAfter(e.target.value, h.open) })} className="num h-9 rounded-control border border-line bg-bg px-2 text-sm" />
+                  {isNextDay(h.close) && <span className="text-[11px] font-medium text-warn">{t('次日')}</span>}
                 </div>
               )}
             </li>
