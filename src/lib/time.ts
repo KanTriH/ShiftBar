@@ -34,12 +34,13 @@ export const inputTime = (m: number) => fmtMin(m % 1440)
 /** 这个时刻是不是已经在次日（超过 24:00） */
 export const isNextDay = (m: number) => m > 1440
 /**
- * 解析"开始时间"输入：早于开门时间的时刻，说明在次日凌晨（营业日跨过了午夜），要加上 24 小时。
- * 例：9:00 开门，输入 01:00 -> 1500。
+ * 解析"开始时间"输入：早于开门时间的时刻，如果这家店营业过午夜（close > 1440），
+ * 说明指的是次日凌晨，要加上 24 小时。例：9:00 开门、次日 1:00 关门，输入 01:00 -> 1500。
+ * 店不过午夜时不做换算，原样返回，调用方会提示"不在营业时间内"（而不是让人看到莫名其妙的"次日"）。
  */
-export function parseStartIn(v: string, open: number) {
+export function parseStartIn(v: string, open: number, close = Infinity) {
   const t = parseHM(v)
-  return t < open ? t + 1440 : t
+  return t < open && close > 1440 ? t + 1440 : t
 }
 /**
  * 解析"结束时间"输入：不晚于开始时间，说明已经过了午夜，加上 24 小时。

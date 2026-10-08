@@ -6,7 +6,6 @@ export const EN: Record<string, string> = {
   '班表': "Shifts",
   '班表 - 小店排班工具': "Shifts - scheduling for small shops",
   '关闭': "Close",
-  '保存': "Save",
   '添加': "Add",
   '删除': "Delete",
   '完成': "Done",

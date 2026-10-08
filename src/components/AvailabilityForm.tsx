@@ -7,6 +7,8 @@ import type { AvailEntry, WeekHours, WeekStartDay } from '../lib/types'
 import { addDays, dayLabel, fmtDay, fmtMin, inputTime, isNextDay, mergeIntervals, parseEndAfter, parseStartIn, todayISO, weekDays, weekStart, weekdayIdx } from '../lib/time'
 import type { Interval } from '../lib/time'
 import { errMsg } from '../lib/errors'
+import { validateWeek } from '../lib/availability'
+import type { DayError } from '../lib/availability'
 
 interface DayState { ranges: Interval[]; note: string; locs: string[] }
 const EMPTY_DAY: DayState = { ranges: [], note: '', locs: [] }
@@ -68,19 +70,13 @@ export function AvailabilityForm({ hours, locations, weekStartDay, region, load,
   }
 
   const submit = async () => {
-    const errs: Record<string, string> = {}
-    const entries: AvailEntry[] = []
-    for (const day of days) {
-      const h = hours[weekdayIdx(day)]; const st = state[day]
-      if (!st || !st.ranges.length) continue
-      if (!h) { errs[day] = t('这天店铺休息'); continue }
-      for (const [a, b] of st.ranges) {
-        if (b <= a) { errs[day] = t('结束时间要晚于开始时间'); break }
-        if (a < h.open || b > h.close) { errs[day] = t('请在营业时间内填写（{a} - {b}）', { a: fmtMin(h.open), b: fmtMin(h.close) }); break }
-      }
-      if (errs[day]) continue
-      for (const [a, b] of mergeIntervals(st.ranges)) entries.push({ day, start: a, end: b, note: st.note, locations: st.locs })
-    }
+    // 校验和生成记录的逻辑在 lib/availability.ts（有单元测试），这里只负责把错误翻译成文案
+    const { errors: found, entries } = validateWeek(days, state, (d) => hours[weekdayIdx(d)])
+    const text = (e: DayError) =>
+      e.kind === 'closed' ? t('这天店铺休息')
+        : e.kind === 'order' ? t('结束时间要晚于开始时间')
+        : t('请在营业时间内填写（{a} - {b}）', { a: fmtMin(e.open), b: fmtMin(e.close) })
+    const errs = Object.fromEntries(Object.entries(found).map(([d, e]) => [d, text(e)]))
     setErrors(errs)
     if (Object.keys(errs).length) { toast(t('有几天的时间需要修改')); return }
     setSaving(true)
@@ -131,7 +127,7 @@ function DayRow({ day, hours, state, locations, region, error, past, onChange }:
   const idx = weekdayIdx(day)
   const closed = !hours
   const setRange = (i: number, which: 0 | 1, v: string) =>
-    onChange((d) => ({ ...d, ranges: d.ranges.map((r, j) => (j === i ? (which === 0 ? [parseStartIn(v, hours?.open ?? 0), r[1]] : [r[0], parseEndAfter(v, r[0])]) : r) as Interval) }))
+    onChange((d) => ({ ...d, ranges: d.ranges.map((r, j) => (j === i ? (which === 0 ? [parseStartIn(v, hours?.open ?? 0, hours?.close), r[1]] : [r[0], parseEndAfter(v, r[0])]) : r) as Interval) }))
   const addRange = () => {
     if (!hours) return
     const last = state.ranges[state.ranges.length - 1]

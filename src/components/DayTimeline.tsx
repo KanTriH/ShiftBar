@@ -3,6 +3,7 @@ import { Trash, WarningCircle, X } from '@phosphor-icons/react'
 import { Badge, Button, Input, cn } from './ui'
 import type { Availability, DayHours, Member, Position, Shift, ShiftInput } from '../lib/types'
 import { translate as tr } from '../i18n/core'
+import { computeShiftIssues } from '../lib/scheduleRules'
 import { clamp, covers, fmtHours, fmtMin, inputTime, isNextDay, mergeIntervals, parseEndAfter, parseStartIn, snap } from '../lib/time'
 
 const NAME_W = 168
@@ -150,27 +151,19 @@ export function DayTimeline(props: Props) {
   // 拖动中的班次用预览值渲染
   const view = useMemo(() => shifts.map((s) => (drag && drag.kind !== 'create' && drag.shiftId === s.id ? { ...s, member_id: drag.memberId, start_min: drag.start, end_min: drag.end } : s)), [shifts, drag])
 
-  const availByMember = useMemo(() => {
-    const m = new Map<string, Availability[]>()
-    for (const a of avail) { const l = m.get(a.member_id) ?? []; l.push(a); m.set(a.member_id, l) }
-    return m
-  }, [avail])
-
+  // 判断逻辑在 lib/scheduleRules.ts（有单元测试），这里只负责把问题翻译成文案
   const issues = useMemo(() => {
+    const raw = computeShiftIssues({ shifts: view, otherShifts, avail, submitted })
     const out = new Map<string, string>()
-    for (const s of view) {
-      const msgs: string[] = []
-      if (view.some((o) => o.id !== s.id && o.member_id === s.member_id && o.start_min < s.end_min && o.end_min > s.start_min)) msgs.push(tr('和同一个人的其他班次时间重叠'))
-      const clash = otherShifts.find((o) => o.member_id === s.member_id && o.start_min < s.end_min && o.end_min > s.start_min)
-      if (clash) msgs.push(tr('同一时间已在「{loc}」排班', { loc: locationNames.get(clash.location_id) ?? tr('其他门店') }))
-      if (submitted.has(s.member_id)) {
-        const merged = mergeIntervals((availByMember.get(s.member_id) ?? []).map((a) => [a.start_min, a.end_min]))
-        if (!covers(merged, s.start_min, s.end_min)) msgs.push(tr('超出该员工报的可用时间'))
-      }
-      if (msgs.length) out.set(s.id, msgs.join(tr('；')))
+    for (const [id, list] of raw) {
+      out.set(id, list.map((i) => {
+        if (i.kind === 'overlap') return tr('和同一个人的其他班次时间重叠')
+        if (i.kind === 'otherLocation') return tr('同一时间已在「{loc}」排班', { loc: locationNames.get(i.locationId) ?? tr('其他门店') })
+        return tr('超出该员工报的可用时间')
+      }).join(tr('；')))
     }
     return out
-  }, [view, otherShifts, locationNames, availByMember, submitted])
+  }, [view, otherShifts, locationNames, avail, submitted])
 
   const coverage = useMemo(() => {
     const slots: { t: number; by: Map<string, number>; total: number }[] = []
@@ -342,7 +335,7 @@ function ShiftEditor({ shift, member, positions, hours, anchor, issue, onClose, 
   const setTime = (which: 'start' | 'end', v: string) => {
     if (!v) return
     if (which === 'start') {
-      const s = parseStartIn(v, hours.open)
+      const s = parseStartIn(v, hours.open, hours.close)
       if (s >= hours.open && s < shift.end_min) onChange({ start_min: s })
     } else {
       const e = parseEndAfter(v, shift.start_min)
