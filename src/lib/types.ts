@@ -1,4 +1,5 @@
-export interface DayHours { open: number; close: number }
+/** required = 店长标记的"必选"日：只在报班页提示，员工不一定要报 */
+export interface DayHours { open: number; close: number; required?: boolean }
 /** 下标 0 = 周一 ... 6 = 周日；null = 休息 */
 export type WeekHours = (DayHours | null)[]
 

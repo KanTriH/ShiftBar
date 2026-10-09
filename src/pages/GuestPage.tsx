@@ -45,8 +45,7 @@ export default function GuestPage() {
         </div>
       ) : (
         <>
-          <h1 className="pt-4 text-3xl font-semibold tracking-tight">{shop.name}</h1>
-          <p className="mt-2 text-sm text-mute">{t('告诉店长你哪些时间可以上班。不用注册，用名字就能填，之后还能回来修改。')}</p>
+          <h1 className="pt-4 text-3xl font-semibold tracking-tight">{t('{name}报班', { name: shop.name })}</h1>
 
           <div className="mt-6">
             {user ? (
