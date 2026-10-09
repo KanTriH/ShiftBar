@@ -89,6 +89,7 @@ export const EN: Record<string, string> = {
   '找不到这家店铺': "Shop not found",
   '链接或店铺码可能输错了，请向店长再确认一下。': "The link or shop code may be wrong. Please check with your manager.",
   '{name}报班': "{name} staffs' work availability",
+  '这一周已填 {n} 天': "{n} day(s) filled in this week",
   '必选': "Mandatory",
   '（必选）': "(mandatory)",
   '已登录，将以你的员工身份提交。如果还没绑定店铺，请先到「我的页面」输入店铺码。': "You are signed in and will submit as yourself. If you haven't linked a shop yet, enter the shop code on \"My page\" first.",

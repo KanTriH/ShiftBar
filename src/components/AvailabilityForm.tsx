@@ -94,6 +94,7 @@ export function AvailabilityForm({ hours, locations, weekStartDay, region, load,
           <Button variant="secondary" size="sm" onClick={() => go(1)} aria-label={t('下一周')}><CaretRight size={16} /></Button>
           {week === thisWeek && <span className="ml-2 text-xs text-mute">{t('本周')}</span>}
         </div>
+        <p className="text-xs text-mute">{loading ? '' : t('这一周已填 {n} 天', { n: days.filter((d) => state[d]?.ranges.length).length })}</p>
       </div>
 
       <div className="flex flex-col gap-3">
