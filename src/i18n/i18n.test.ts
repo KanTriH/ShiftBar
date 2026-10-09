@@ -27,9 +27,9 @@ describe('translate', () => {
   })
 
   it('fills {placeholders} in both languages, including repeated ones and numbers', () => {
-    expect(translate('这一周已填 {n} 天，没填的天数视为不能上班', { n: 3 })).toBe('这一周已填 3 天，没填的天数视为不能上班')
+    expect(translate('{n} 人可上', { n: 3 })).toBe('3 人可上')
     setLangValue('en')
-    expect(translate('这一周已填 {n} 天，没填的天数视为不能上班', { n: 3 })).toBe('3 day(s) filled in. Days left blank count as unavailable.')
+    expect(translate('{n} 人可上', { n: 3 })).toBe('3 available')
     expect(translate('请在营业时间内填写（{a} - {b}）', { a: '09:00', b: '22:00' })).toBe('Please stay within opening hours (09:00 - 22:00)')
   })
 

@@ -88,7 +88,9 @@ export const EN: Record<string, string> = {
   // ---- 访客报班页 ----
   '找不到这家店铺': "Shop not found",
   '链接或店铺码可能输错了，请向店长再确认一下。': "The link or shop code may be wrong. Please check with your manager.",
-  '告诉店长你哪些时间可以上班。不用注册，用名字就能填，之后还能回来修改。': "Tell your manager when you can work. No account needed, just use your name. You can come back and edit later.",
+  '{name}报班': "{name} staffs' work availability",
+  '必选': "Mandatory",
+  '（必选）': "(mandatory)",
   '已登录，将以你的员工身份提交。如果还没绑定店铺，请先到「我的页面」输入店铺码。': "You are signed in and will submit as yourself. If you haven't linked a shop yet, enter the shop code on \"My page\" first.",
   '你的名字': "Your name",
   '和店长排班表上的名字一致': "Same name as on the manager's schedule",
@@ -98,7 +100,6 @@ export const EN: Record<string, string> = {
   '我的页面': "My page",
 
   // ---- 报班表单 ----
-  '这一周已填 {n} 天，没填的天数视为不能上班': "{n} day(s) filled in. Days left blank count as unavailable.",
   '本周的修改还没有提交，确定要切换吗？': "You have unsubmitted changes for this week. Switch anyway?",
   '这天店铺休息': "The shop is closed this day",
   '结束时间要晚于开始时间': "End time must be after start time",
@@ -115,7 +116,6 @@ export const EN: Record<string, string> = {
   '删除时段': "Remove time range",
   '再加一段': "Add another",
   '选时段': "Add time range",
-  '这天不能上班': "Not available this day",
   '可上班的门店': "Locations you can work at",
   '可去的门店': "Can work at",
   '没选 = 哪家都可以': "None selected = any location",

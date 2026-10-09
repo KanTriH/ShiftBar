@@ -60,7 +60,7 @@ export default function Settings() {
             <p className="mt-1 text-sm text-mute">{t('排班时间轴和员工可填的范围以此为准。')}</p>
             <p className="mt-1 text-sm text-mute">{t('营业到午夜以后？把关门时间填成次日的时刻，例如 01:00，系统会自动识别为次日。')}</p>
           </div>
-          <Button size="sm" variant="ghost" onClick={() => saveShop({ hours: shop.hours.map(() => shop.hours[0] ?? { open: 540, close: 1320 }) })}>{t('周一同步到全周')}</Button>
+          <Button size="sm" variant="ghost" onClick={() => saveShop({ hours: shop.hours.map((day) => { const base = shop.hours[0] ?? { open: 540, close: 1320 }; return day?.required ? { open: base.open, close: base.close, required: true } : { open: base.open, close: base.close } }) })}>{t('周一同步到全周')}</Button>
         </div>
         <ul className="divide-y divide-line rounded-panel border border-line bg-surface">
           {shop.hours.map((h, i) => (
@@ -69,6 +69,11 @@ export default function Settings() {
               <label className="flex items-center gap-2 text-sm text-mute">
                 <input type="checkbox" checked={!h} onChange={(e) => setDay(i, e.target.checked ? null : { open: 540, close: 1320 })} className="accent-[var(--accent)]" />{t('休息')}
               </label>
+              {h && (
+                <label className="flex items-center gap-2 text-sm text-mute">
+                  <input type="checkbox" checked={!!h.required} onChange={(e) => setDay(i, e.target.checked ? { ...h, required: true } : { open: h.open, close: h.close })} className="accent-[var(--accent)]" />{t('必选')}
+                </label>
+              )}
               {h && (
                 <div className="ml-auto flex items-center gap-2">
                   <input type="time" step={900} value={inputTime(h.open)} aria-label={t('{day}开门', { day: dayLabel(i) })} onChange={(e) => e.target.value && parseHM(e.target.value) < h.close && h.close - parseHM(e.target.value) <= 1440 && setDay(i, { ...h, open: parseHM(e.target.value) })} className="num h-9 rounded-control border border-line bg-bg px-2 text-sm" />

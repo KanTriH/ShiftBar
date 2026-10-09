@@ -84,7 +84,6 @@ export function AvailabilityForm({ hours, locations, weekStartDay, region, load,
   }
 
   const weekLabel = `${fmtDay(days[0])} - ${fmtDay(days[6])}`
-  const filled = days.filter((d) => state[d]?.ranges.length).length
 
   return (
     <div>
@@ -95,7 +94,6 @@ export function AvailabilityForm({ hours, locations, weekStartDay, region, load,
           <Button variant="secondary" size="sm" onClick={() => go(1)} aria-label={t('下一周')}><CaretRight size={16} /></Button>
           {week === thisWeek && <span className="ml-2 text-xs text-mute">{t('本周')}</span>}
         </div>
-        <p className="text-xs text-mute">{loading ? '' : t('这一周已填 {n} 天，没填的天数视为不能上班', { n: filled })}</p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -139,7 +137,7 @@ function DayRow({ day, hours, state, locations, region, error, past, onChange }:
   return (
     <div className={cn('grid gap-3 rounded-panel border bg-surface p-4 md:grid-cols-[112px_1fr]', error ? 'border-danger' : 'border-line', (past || closed) && 'opacity-60')}>
       <div>
-        <p className="text-sm font-semibold">{dayLabel(idx)}</p>
+        <p className="text-sm font-semibold">{dayLabel(idx)}{hours?.required && <span className="ml-1 text-xs font-medium text-warn">{t('（必选）')}</span>}</p>
         <p className="num text-xs text-mute">{fmtDay(day)}</p>
         {hours && <p className="num mt-1 text-[11px] text-faint">{fmtMin(hours.open)} - {fmtMin(hours.close)}</p>}
         {holiday && <p className="mt-1 text-[11px] font-medium text-warn" title={holidayLabel(holiday)}>{holidayName(holiday)}</p>}
@@ -167,7 +165,6 @@ function DayRow({ day, hours, state, locations, region, error, past, onChange }:
             ))}
             <Button size="sm" variant="secondary" onClick={() => onChange((d) => ({ ...d, ranges: [[hours!.open, hours!.close]] }))}><Sun size={15} />{t('全天')}</Button>
             <Button size="sm" variant="ghost" onClick={addRange}><Plus size={15} />{state.ranges.length ? t('再加一段') : t('选时段')}</Button>
-            {state.ranges.length === 0 && <span className="text-xs text-faint">{t('这天不能上班')}</span>}
           </div>
           {state.ranges.length > 0 && locations.length > 1 && (
             <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t('可上班的门店')}>
