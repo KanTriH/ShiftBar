@@ -80,8 +80,16 @@ async function save(page, lang, name, opts = {}) {
 }
 
 for (const lang of ['zh', 'en']) {
+  // 0. 首页：等排班卡片里的演示动画播到"班次被拎起、拖动中"那一帧
+  let page = await newPage(lang, { width: 1440, height: 790, scale: 1.5 })
+  await page.goto(BASE + '/')
+  await page.waitForSelector('h1')
+  await page.waitForTimeout(5600)
+  await save(page, lang, 'landing', { clip: { x: 0, y: 0, width: 1440, height: 740 } })
+  await page.context().close()
+
   // 1. 店长：按天排班（周一，含另一家门店的灰色斜纹班次）
-  let page = await newPage(lang, { width: 1280, height: 820, scale: 1.5 })
+  page = await newPage(lang, { width: 1280, height: 820, scale: 1.5 })
   await login(page, 'u-boss')
   await page.goto(BASE + '/manager')
   await page.waitForSelector('div[role=tablist][aria-label] > button')
