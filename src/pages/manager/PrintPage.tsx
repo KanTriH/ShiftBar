@@ -1,3 +1,4 @@
+import { ROLE_PRINT, roleOf } from '../../lib/roles'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, FilePdf } from '@phosphor-icons/react'
@@ -162,7 +163,7 @@ function Rows({ list, ctx }: { list: Shift[]; ctx: Ctx }) {
             <td className="num px-2 py-1 text-center" style={cell}>{fmtMin(s.start_min)}</td>
             <td className="num px-2 py-1 text-center" style={cell}>{fmtMin(s.end_min)}</td>
             <td className="px-2 py-1 text-center" style={cell}>
-              {p ? <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: p.color }} />{p.name}</span> : ''}
+              {p ? <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: ROLE_PRINT[roleOf(p.color)].border }} />{p.name}</span> : ''}
               {s.note && <span className="ml-2 text-[11px]" style={{ color: MUTED }}>{s.note}</span>}
             </td>
           </tr>
@@ -227,7 +228,7 @@ function TimelineSheet({ days, ctx, shifts, tasks }: { days: string[]; ctx: Ctx;
                       <td className="truncate px-2" style={cell} title={s.note}>{s.note}</td>
                       <td className="num px-1 text-center" style={cell}>{fmtMin(s.start_min)}-{fmtMin(s.end_min)}</td>
                       <td className="relative p-0" style={{ ...cell, backgroundImage: grid }}>
-                        <div className="absolute inset-y-[3px]" style={{ left: `${((s.start_min - lo) / span) * 100}%`, width: `${((s.end_min - s.start_min) / span) * 100}%`, background: p?.color ?? '#4b5563' }} title={p?.name} />
+                        <div className="absolute inset-y-[3px]" style={{ left: `${((s.start_min - lo) / span) * 100}%`, width: `${((s.end_min - s.start_min) / span) * 100}%`, background: ROLE_PRINT[roleOf(p?.color)].border }} title={p?.name} />
                         {p && ((s.end_min - s.start_min) / span) > 0.1 && <span className="absolute inset-y-0 flex items-center px-1.5 text-[10px] font-semibold text-white" style={{ left: `${((s.start_min - lo) / span) * 100}%` }}>{p.name}</span>}
                       </td>
                     </>

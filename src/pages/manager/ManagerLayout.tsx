@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { CalendarBlank, GearSix, SignOut, Users, Clock } from '@phosphor-icons/react'
 import { Button, Field, Input, Logo, Skeleton, cn, useToast } from '../../components/ui'
 import { api } from '../../data'
 import { useAuth } from '../../auth/AuthContext'
@@ -25,10 +24,10 @@ const Ctx = createContext<ManagerCtx | null>(null)
 export const useManager = () => useContext(Ctx)!
 
 const TABS = [
-  { to: '/manager', end: true, label: '排班', icon: CalendarBlank },
-  { to: '/manager/availability', end: false, label: '可用时间', icon: Clock },
-  { to: '/manager/staff', end: false, label: '员工', icon: Users },
-  { to: '/manager/settings', end: false, label: '设置', icon: GearSix },
+  { to: '/manager', end: true, label: '排班' },
+  { to: '/manager/availability', end: false, label: '可用时间' },
+  { to: '/manager/staff', end: false, label: '员工' },
+  { to: '/manager/settings', end: false, label: '设置' },
 ]
 
 export default function ManagerLayout() {
@@ -70,21 +69,21 @@ export default function ManagerLayout() {
   return (
     <Ctx.Provider value={{ shop, setShop, locations, positions, members, reloadLocations, reloadPositions, reloadMembers }}>
       <div className="min-h-[100dvh]">
-        <header className="sticky top-0 z-30 print:hidden border-b border-line bg-bg/90 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-4 sm:px-6">
-            <Link to="/"><Logo /></Link>
-            <span className="hidden h-5 w-px bg-line sm:block" />
-            <span className="hidden truncate text-sm font-medium sm:block">{shop.name}</span>
-            <nav className="thin-scroll ml-2 flex min-w-0 flex-1 gap-1 overflow-x-auto" aria-label={t('主导航')}>
-              {TABS.map(({ to, end, label, icon: Icon }) => (
+        <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur print:hidden">
+          <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-3 px-4 sm:px-6">
+            <Link to="/"><Logo className="text-xl" /></Link>
+            <span className="hidden text-faint sm:block">/</span>
+            <span className="hidden max-w-[10rem] truncate text-sm font-semibold sm:block">{shop.name}</span>
+            <nav className="thin-scroll ml-1 flex min-w-0 flex-1 gap-1 overflow-x-auto" aria-label={t('主导航')}>
+              {TABS.map(({ to, end, label }) => (
                 <NavLink key={to} to={to} end={end}
-                  className={({ isActive }) => cn('press flex h-8 shrink-0 items-center gap-1.5 rounded-control px-3 text-[13px] font-medium', isActive ? 'bg-accent-soft text-accent' : 'text-mute hover:bg-sunken hover:text-ink')}>
-                  <Icon size={16} />{t(label)}
+                  className={({ isActive }) => cn('press flex h-10 shrink-0 items-center rounded-full px-4 text-sm font-semibold', isActive ? 'bg-ink text-bg' : 'text-mute hover:bg-sunken hover:text-ink')}>
+                  {t(label)}
                 </NavLink>
               ))}
             </nav>
             <LangSwitch />
-            <Button variant="ghost" size="sm" onClick={async () => { await api.signOut(); nav('/') }}><SignOut size={16} /><span className="hidden sm:inline">{t('退出')}</span></Button>
+            <button className="press px-1 text-sm font-medium text-mute hover:text-ink" onClick={async () => { await api.signOut(); nav('/') }}>{t('退出')}</button>
           </div>
         </header>
         <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 print:max-w-none print:p-0"><Outlet /></main>

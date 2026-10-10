@@ -6,46 +6,68 @@
 @import "@fontsource/fredoka/latin-600.css"; /* ShiftBar 字标 */
 
 :root {
-  --bg: #f4f5f7;
-  --surface: #ffffff;
-  --sunken: #eceef1;
-  --line: #e0e3e8;
-  --ink: #16181d;
-  --mute: #5b6473;
-  --faint: #8a93a1;
-  --accent: #2f5fd0;
+  /* 内部页面配色：取自 palette/App Palette.png。暖米白 + 墨黑，陶土色只标"此刻"，岗位色负责区分 */
+  --bg: #f4f2ee;
+  --surface: #fbfaf7;
+  --sunken: #efebe5;          /* surface-2：表头 / hover */
+  --line: #e2dcd3;
+  --line-strong: #cfc5b8;
+  --ink: #161514;
+  --ink-2: #4a4540;
+  --mute: #6b655e;
+  --faint: #9a9288;
+  --hero: #ddd5c9;            /* "下一班"大卡片的底色 */
+  --accent: #a8694a;          /* 陶土：选中、此刻 */
   --accent-ink: #ffffff;
-  --accent-soft: #e6ecfa;
-  --avail: #22a06b;
-  --danger: #d1372e;
-  --warn: #b7791f;
-  /* ShiftBar logo 配色，取自 public/brand/shiftbar-mark-light.svg */
-  --logo-cell: #7d8db5;
-  --logo-bar: #1f3a72;
-  --logo-dot: #0b0d10;
-  --logo-ink: #1f3a72;
+  --accent-soft: #f1e4da;
+  --avail: #5e7a4e;           /* success：已发布、可用 */
+  --avail-soft: #e3e8d9;
+  --warn: #b7832f;            /* 草稿、试工 */
+  --warn-soft: #f5e9d2;
+  --danger: #a8473c;          /* 冲突、删除 */
+  --danger-soft: #f3deda;
+  --off: #b5ada3;             /* 不可上班 */
+  --off-soft: #eae5de;
+  --off-ink: #4a443e;
+  /* 岗位色 fill / border / text，固定 6 个 */
+  --role-clay-fill: #d9c3b0;  --role-clay-border: #a8694a;  --role-clay-text: #4a2e1f;
+  --role-sage-fill: #c9cdb6;  --role-sage-border: #7e8a5c;  --role-sage-text: #3a4128;
+  --role-mist-fill: #c8d0d6;  --role-mist-border: #5f7280;  --role-mist-text: #26323b;
+  --role-plum-fill: #d6c8d0;  --role-plum-border: #85667a;  --role-plum-text: #3e2a36;
+  --role-sand-fill: #e4d9b8;  --role-sand-border: #a08a4c;  --role-sand-text: #4a3e1c;
+  --role-stone-fill: #d2ccc4; --role-stone-border: #7a7268; --role-stone-text: #332f2a;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1114;
-    --surface: #171a1f;
-    --sunken: #1e2229;
-    --line: #2a2f38;
-    --ink: #eceef2;
-    --mute: #a0a9b6;
-    --faint: #6f7886;
-    --accent: #7a9cf5;
-    --accent-ink: #0b1020;
-    --accent-soft: #1d2842;
-    --avail: #3ec48a;
-    --danger: #f0655c;
-    --warn: #e0a84a;
-    /* 取自 public/brand/shiftbar-mark-dark.svg */
-    --logo-cell: #4c6296;
-    --logo-bar: #f0e9d2;
-    --logo-dot: #f0e9d2;
-    --logo-ink: #f0e9d2;
+    --bg: #141312;
+    --surface: #1c1a18;
+    --sunken: #24211e;
+    --line: #2e2a26;
+    --line-strong: #3a3530;
+    --ink: #f4f2ee;
+    --ink-2: #c9c2b8;
+    --mute: #9a9288;
+    --faint: #6f685f;
+    --hero: #2b2824;
+    --accent: #d19a78;
+    --accent-ink: #1c1a18;
+    --accent-soft: #3b2b21;
+    --avail: #9db38a;
+    --avail-soft: #2d3626;
+    --warn: #d9ae62;
+    --warn-soft: #3d3018;
+    --danger: #d98476;
+    --danger-soft: #3d211d;
+    --off: #4a443e;
+    --off-soft: #2a2622;
+    --off-ink: #b5ada3;
+    --role-clay-fill: #4a3427;  --role-clay-border: #d19a78;  --role-clay-text: #f1ddcd;
+    --role-sage-fill: #363c2a;  --role-sage-border: #9db38a;  --role-sage-text: #dde3c8;
+    --role-mist-fill: #2c3740;  --role-mist-border: #8fa3b2;  --role-mist-text: #d3dee6;
+    --role-plum-fill: #3e2c37;  --role-plum-border: #b794a9;  --role-plum-text: #ead6e1;
+    --role-sand-fill: #433b22;  --role-sand-border: #c9b27a;  --role-sand-text: #ede0b8;
+    --role-stone-fill: #35312c; --role-stone-border: #a39b90; --role-stone-text: #e2dcd3;
     color-scheme: dark;
   }
 }
@@ -64,11 +86,16 @@
   --color-avail: var(--avail);
   --color-danger: var(--danger);
   --color-warn: var(--warn);
+  --color-ink-2: var(--ink-2);
+  --color-line-strong: var(--line-strong);
+  --color-hero: var(--hero);
+  --color-off: var(--off);
   --font-sans: "Geist Variable", "Noto Sans SC Variable", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", monospace;
+  --font-display: "Bricolage Grotesque Variable", "Geist Variable", "Noto Sans SC Variable", system-ui, sans-serif;
   --font-logo: "Fredoka", "Nunito", "Geist Variable", system-ui, sans-serif;
-  --radius-control: 8px;
-  --radius-panel: 12px;
+  --radius-control: 12px;
+  --radius-panel: 22px;
 }
 
 html, body, #root { min-height: 100dvh; }

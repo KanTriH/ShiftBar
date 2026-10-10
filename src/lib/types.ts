@@ -22,7 +22,8 @@ export interface PublicShop { name: string; hours: WeekHours; week_start: WeekSt
 
 export const DEFAULT_HOURS: DayHours[] = Array.from({ length: 7 }, () => ({ open: 9 * 60, close: 22 * 60 }))
 
-export const POSITION_COLORS = ['#c9532f', '#1f7a6d', '#3a64c8', '#8b4fb3', '#9a6f0e', '#c23b62', '#4a7d2b', '#4b5563']
+/** 6 个固定岗位色（clay / sage / mist / plum / sand / stone），见 lib/roles.ts */
+export const POSITION_COLORS = ['#a8694a', '#7e8a5c', '#5f7280', '#85667a', '#a08a4c', '#7a7268']
 
 export const POSITION_PRESETS: { label: string; items: string[] }[] = [
   { label: '奶茶 / 咖啡店', items: ['prep', 'bar', 'cashier'] },

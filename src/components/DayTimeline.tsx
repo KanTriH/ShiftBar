@@ -4,13 +4,14 @@ import { Badge, Button, Input, cn } from './ui'
 import type { Availability, DayHours, Member, Position, Shift, ShiftInput } from '../lib/types'
 import { translate as tr } from '../i18n/core'
 import { computeShiftIssues } from '../lib/scheduleRules'
+import { roleDot, roleStyle } from '../lib/roles'
 import { clamp, covers, fmtHours, fmtMin, inputTime, isNextDay, mergeIntervals, parseEndAfter, parseStartIn, snap } from '../lib/time'
 
 const NAME_W = 168
 const ROW_H = 60
-const COVER_H = 84
+const COVER_H = 44
 const MIN_LEN = 15
-const NO_POS_COLOR = '#4b5563'
+const NO_POS_COLOR = '#7a7268'
 
 type Drag =
   | { kind: 'create'; memberId: string; anchor: number; start: number; end: number }
@@ -174,8 +175,29 @@ export function DayTimeline(props: Props) {
     }
     return slots
   }, [view, hours])
-  const maxCover = Math.max(4, ...coverage.map((c) => c.total))
 
+  const unavail = useMemo(() => {
+    const out = new Map<string, [number, number][]>()
+    for (const m of members) {
+      if (!submitted.has(m.id)) continue
+      const mine = mergeIntervals(avail.filter((a) => a.member_id === m.id).map((a) => [a.start_min, a.end_min] as [number, number]))
+      const gaps: [number, number][] = []
+      let cur = hours.open
+      for (const [a, b] of mine) {
+        if (a > cur) gaps.push([cur, Math.min(a, hours.close)])
+        cur = Math.max(cur, b)
+      }
+      if (cur < hours.close) gaps.push([cur, hours.close])
+      out.set(m.id, gaps.filter(([a, b]) => b > a))
+    }
+    return out
+  }, [members, submitted, avail, hours])
+  const unavailText = (memberId: string) => {
+    const g = unavail.get(memberId) ?? []
+    if (!g.length) return null
+    if (g.length === 1 && g[0][0] <= hours.open && g[0][1] >= hours.close) return tr('全天不可上')
+    return tr('不可上 {a} - {b}', { a: fmtMin(g[0][0]), b: fmtMin(g[0][1]) }) + (g.length > 1 ? ' …' : '')
+  }
   const dayMin = (memberId: string) => view.filter((s) => s.member_id === memberId).reduce((n, s) => n + s.end_min - s.start_min, 0)
   const hourStep = px >= 1.5 ? 60 : 120
   const ticks: number[] = []
@@ -188,11 +210,11 @@ export function DayTimeline(props: Props) {
 
   return (
     <div className="relative">
-      <div ref={scrollRef} className="thin-scroll overflow-x-auto rounded-panel border border-line bg-surface">
+      <div ref={scrollRef} className="thin-scroll overflow-x-auto rounded-[22px] border border-line bg-surface">
         <div className="flex" style={{ width: NAME_W + trackW + 2, minWidth: '100%' }}>
           {/* 左侧姓名列 */}
           <div className="sticky left-0 z-20 shrink-0 border-r border-line bg-surface" style={{ width: NAME_W }}>
-            <div className="h-9 border-b border-line" />
+            <div className="h-9 border-b border-line bg-sunken" />
             {members.map((m) => (
               <div key={m.id} className="flex flex-col justify-center border-b border-line px-3" style={{ height: ROW_H }}>
                 <div className="flex items-center gap-1.5">
@@ -200,39 +222,42 @@ export function DayTimeline(props: Props) {
                   {m.status === 'trial' && <Badge tone="warn">{tr('试工')}</Badge>}
                 </div>
                 <span className="num text-[11px] text-mute">
-                  {submitted.has(m.id) ? tr('当天 {h}h', { h: fmtHours(dayMin(m.id)) }) : <span className="text-faint">{tr('未报班')}</span>}
+                  {!submitted.has(m.id) ? <span className="text-faint">{tr('未报班')}</span>
+                    : dayMin(m.id) > 0 ? tr('当天 {h}h', { h: fmtHours(dayMin(m.id)) })
+                    : <span className="text-faint">{unavailText(m.id) ?? tr('当天 {h}h', { h: '0' })}</span>}
                 </span>
               </div>
             ))}
-            <div className="flex items-center px-3 text-xs font-medium text-mute" style={{ height: COVER_H }}>{tr('人手')}</div>
+            <div className="flex items-center border-t border-line bg-sunken px-3 text-xs font-medium text-mute" style={{ height: COVER_H }}>{tr('人手')}</div>
           </div>
 
           {/* 时间轴 */}
           <div className="relative" style={{ width: trackW }}>
-            <div className="relative h-9 border-b border-line text-[11px] text-mute num" aria-hidden>
-              {crossesMidnight && <span className="absolute top-0.5 whitespace-nowrap text-[10px] font-medium text-warn" style={{ left: left(1440) + 4 }}>{tr('次日')}</span>}
+            <div className="relative h-9 border-b border-line bg-sunken text-[11px] text-mute num" aria-hidden>
+              {crossesMidnight && <span className="absolute top-0.5 whitespace-nowrap text-[10px] font-semibold text-accent" style={{ left: left(1440) + 4 }}>{tr('次日')}</span>}
               {ticks.map((t) => (
                 <span key={t} className={cn('absolute top-2.5', t === hours.open ? 'translate-x-1' : t === hours.close ? '-translate-x-full -ml-1' : '-translate-x-1/2')} style={{ left: left(t) }}>{fmtMin(t)}</span>
               ))}
             </div>
 
             <div ref={trackRef} className="relative" style={{ height: members.length * ROW_H, backgroundImage: gridBg }}>
-              {crossesMidnight && <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-warn/60" style={{ left: left(1440) }} />}
+              {crossesMidnight && <div className="pointer-events-none absolute inset-y-0 border-l-2 border-dashed border-accent/70" style={{ left: left(1440) }} />}
               {/* 行底 + 创建入口 */}
               {members.map((m, i) => (
                 <div key={m.id} onPointerDown={onLaneDown} className="absolute inset-x-0 cursor-crosshair border-b border-line" style={{ top: i * ROW_H, height: ROW_H }} data-lane />
               ))}
-              {/* 员工可用时间：半透明绿 */}
-              {avail.map((a) => {
-                const i = rowOf.get(a.member_id); if (i === undefined) return null
-                return <div key={a.id} className="pointer-events-none absolute rounded-control bg-avail/25" title={a.note || undefined} style={{ top: i * ROW_H + 4, height: ROW_H - 8, left: left(a.start_min), width: (a.end_min - a.start_min) * px }} />
-              })}
+              {/* 员工不可上班的时间：斜纹（报了班、但这段时间没有可用） */}
+              {members.flatMap((m) => (unavail.get(m.id) ?? []).map(([a, b]) => {
+                const i = rowOf.get(m.id); if (i === undefined) return null
+                return <div key={`${m.id}-${a}`} className="pointer-events-none absolute rounded-xl" title={tr('不可上班')}
+                  style={{ top: i * ROW_H + 6, height: ROW_H - 12, left: left(a), width: (b - a) * px, background: 'repeating-linear-gradient(135deg, var(--off-soft) 0 6px, var(--line) 6px 12px)', opacity: 0.9 }} />
+              }))}
               {/* 同一个人在其他门店的班次：灰色斜纹，只读 */}
               {otherShifts.map((o) => {
                 const i = rowOf.get(o.member_id); if (i === undefined) return null
                 const w = (o.end_min - o.start_min) * px
                 return (
-                  <div key={o.id} className="pointer-events-none absolute flex flex-col justify-center overflow-hidden rounded-control border border-line px-2 text-mute"
+                  <div key={o.id} className="pointer-events-none absolute flex flex-col justify-center overflow-hidden rounded-xl border border-line px-2.5 text-mute"
                     title={tr('在「{loc}」 {a} - {b}', { loc: locationNames.get(o.location_id) ?? tr('其他门店'), a: fmtMin(o.start_min), b: fmtMin(o.end_min) })}
                     style={{ top: i * ROW_H + 6, height: ROW_H - 12, left: left(o.start_min), width: w, background: 'repeating-linear-gradient(135deg, var(--sunken) 0 6px, var(--line) 6px 12px)' }}>
                     {w >= 56 && (
@@ -257,19 +282,17 @@ export function DayTimeline(props: Props) {
                     onPointerDown={(e) => onShiftDown(e, s, 'move')}
                     onContextMenu={(e) => { e.preventDefault(); props.onDelete(shifts.find((x) => x.id === s.id) ?? s) }}
                     title={bad ? tr('注意：{msg}', { msg: bad }) : `${fmtMin(s.start_min)} - ${fmtMin(s.end_min)}${s.note ? `\n${s.note}` : ''}`}
-                    className={cn('absolute flex cursor-grab select-none flex-col justify-center overflow-hidden rounded-control px-2 text-white shadow-sm', bad ? 'ring-2 ring-danger ring-offset-1 ring-offset-surface' : '', active && 'z-10 cursor-grabbing opacity-90 shadow-lg')}
-                    style={{ top: i * ROW_H + 6, height: ROW_H - 12, left: left(s.start_min), width: w, background: p?.color ?? NO_POS_COLOR, touchAction: 'none', transition: active ? 'none' : undefined }}
+                    className={cn('absolute flex cursor-grab select-none items-center overflow-hidden rounded-full border px-3.5', bad ? 'ring-2 ring-danger ring-offset-1 ring-offset-surface' : '', active && 'z-10 cursor-grabbing opacity-90 shadow-lg')}
+                    style={{ ...roleStyle(p?.color ?? NO_POS_COLOR), top: i * ROW_H + 6, height: ROW_H - 12, left: left(s.start_min), width: w, touchAction: 'none', transition: active ? 'none' : undefined }}
                   >
                     <span className="absolute inset-y-0 left-0 w-2 cursor-ew-resize" onPointerDown={(e) => onShiftDown(e, s, 'resize-l')} />
                     <span className="absolute inset-y-0 right-0 w-2 cursor-ew-resize" onPointerDown={(e) => onShiftDown(e, s, 'resize-r')} />
                     {w >= 56 && (
-                      <>
-                        <span className="flex items-center gap-1 truncate text-[12px] font-semibold leading-tight">
-                          {bad && <WarningCircle size={13} weight="fill" className="shrink-0" />}
-                          {p?.name ?? tr('未指定岗位')}
-                        </span>
-                        <span className="num truncate text-[11px] leading-tight opacity-90">{fmtMin(s.start_min)}-{fmtMin(s.end_min)}</span>
-                      </>
+                      <span className="flex items-center gap-1.5 truncate text-[12px] font-semibold leading-tight">
+                        {bad && <WarningCircle size={14} weight="fill" className="shrink-0" />}
+                        <span className="truncate">{p?.name ?? tr('未指定岗位')}</span>
+                        {w >= 130 && <span className="num font-medium opacity-80">{fmtMin(s.start_min)}–{fmtMin(s.end_min)}</span>}
+                      </span>
                     )}
                   </div>
                 )
@@ -279,7 +302,7 @@ export function DayTimeline(props: Props) {
                 const i = rowOf.get(drag.memberId) ?? 0
                 const p = brushId ? posMap.get(brushId) : undefined
                 return (
-                  <div className="pointer-events-none absolute flex items-center rounded-control px-2 text-xs font-medium text-white opacity-80" style={{ top: i * ROW_H + 6, height: ROW_H - 12, left: left(drag.start), width: (drag.end - drag.start) * px, background: p?.color ?? NO_POS_COLOR }}>
+                  <div className="pointer-events-none absolute flex items-center rounded-full border px-3.5 text-xs font-medium opacity-80" style={{ ...roleStyle(p?.color ?? NO_POS_COLOR), top: i * ROW_H + 6, height: ROW_H - 12, left: left(drag.start), width: (drag.end - drag.start) * px }}>
                     <span className="num truncate">{fmtMin(drag.start)}-{fmtMin(drag.end)}</span>
                   </div>
                 )
@@ -287,24 +310,22 @@ export function DayTimeline(props: Props) {
             </div>
 
             {/* 各时段人手：按岗位堆叠 */}
-            <div className="relative flex items-end border-t border-line" style={{ height: COVER_H, backgroundImage: gridBg }}>
-              {coverage.map((c) => (
-                <div key={c.t} className="flex flex-col-reverse justify-start px-px" style={{ width: 30 * px }} title={tr('{time} 共 {n} 人', { time: fmtMin(c.t), n: c.total })}>
-                  {[...positions.map((p) => [p.id, p.color] as const), ['_', NO_POS_COLOR] as const].map(([id, color]) => {
-                    const n = c.by.get(id) ?? 0
-                    return n ? <div key={id} className="w-full first:rounded-b-[2px] last:rounded-t-[2px]" style={{ height: (n / maxCover) * (COVER_H - 22), background: color, opacity: 0.85 }} /> : null
-                  })}
-                  {c.total > 0 && c.t % 60 === 0 && <span className="num order-last mb-0.5 text-center text-[10px] leading-none text-mute">{c.total}</span>}
-                </div>
-              ))}
+            <div className="relative flex items-center border-t border-line bg-sunken" style={{ height: COVER_H }}>
+              {Array.from({ length: Math.ceil(span / 60) }, (_, k) => {
+                const t0 = hours.open + k * 60
+                const n = Math.max(...coverage.filter((c) => c.t >= t0 && c.t < t0 + 60).map((c) => c.total), 0)
+                return (
+                  <div key={t0} className={cn('num text-center text-xs', n === 0 ? 'text-faint' : n === 1 ? 'font-bold text-warn' : 'font-medium text-ink-2')} style={{ width: 60 * px }} title={tr('{time} 共 {n} 人', { time: fmtMin(t0), n })}>{n}</div>
+                )
+              })}
             </div>
           </div>
         </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-mute">
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm bg-avail/25" />{tr('员工可用时间')}</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm bg-accent ring-2 ring-danger ring-offset-1 ring-offset-bg" />{tr('超出可用时间或时间重叠')}</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm" style={{ background: 'repeating-linear-gradient(135deg, var(--off-soft) 0 3px, var(--line) 3px 6px)' }} />{tr('不可上班')}</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-full bg-sunken ring-2 ring-danger ring-offset-1 ring-offset-bg" />{tr('超出可用时间或时间重叠')}</span>
         {otherShifts.length > 0 && <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm border border-line" style={{ background: 'repeating-linear-gradient(135deg, var(--sunken) 0 3px, var(--line) 3px 6px)' }} />{tr('在其他门店的班次')}</span>}
         <span className="hidden lg:inline">{tr('在员工那一行拖动来创建班次；拖动班次移动，拖两端调整时长；点击编辑，右键删除。')}</span>
       </div>
@@ -345,7 +366,7 @@ function ShiftEditor({ shift, member, positions, hours, anchor, issue, onClose, 
   return (
     <>
       <div className="fixed inset-0 z-30" onPointerDown={onClose} />
-      <div role="dialog" aria-label={tr('编辑班次')} className="pop fixed z-40 rounded-panel border border-line bg-surface p-4 shadow-xl" style={{ width: W, left: x, top: below ? anchor.bottom + 8 : undefined, bottom: below ? undefined : window.innerHeight - anchor.top + 8 }}>
+      <div role="dialog" aria-label={tr('编辑班次')} className="pop fixed z-40 rounded-[22px] border border-line bg-surface p-4 shadow-xl" style={{ width: W, left: x, top: below ? anchor.bottom + 8 : undefined, bottom: below ? undefined : window.innerHeight - anchor.top + 8 }}>
         <div className="mb-3 flex items-center justify-between">
           <p className="text-sm font-semibold">{member?.name ?? ''}</p>
           <button onClick={onClose} aria-label={tr('关闭')} className="press rounded p-1 text-mute hover:bg-sunken"><X size={16} /></button>
@@ -354,9 +375,9 @@ function ShiftEditor({ shift, member, positions, hours, anchor, issue, onClose, 
         <div className="mb-3 flex flex-wrap gap-1.5">
           {positions.map((p) => (
             <button key={p.id} onClick={() => onChange({ position_id: p.id })}
-              className={cn('press flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium', shift.position_id === p.id ? 'border-transparent text-white' : 'border-line text-mute hover:bg-sunken')}
-              style={shift.position_id === p.id ? { background: p.color } : undefined}>
-              {shift.position_id !== p.id && <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />}{p.name}
+              className={cn('press flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold', shift.position_id !== p.id && 'border-line text-mute hover:bg-sunken')}
+              style={shift.position_id === p.id ? roleStyle(p.color) : undefined}>
+              {shift.position_id !== p.id && <span className="h-2 w-2 rounded-full" style={{ background: roleDot(p.color) }} />}{p.name}
             </button>
           ))}
           {positions.length === 0 && <span className="text-xs text-mute">{tr('还没有岗位标签，去「设置」里添加')}</span>}
