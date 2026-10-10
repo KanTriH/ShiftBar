@@ -1,12 +1,12 @@
 """生成 README 用的 logo：docs/assets/shiftbar-logo-{light,dark}.svg
 
-为什么需要它：public/brand/shiftbar-logo-*.svg 里的 "ShiftBar" 字标是用 Fredoka 字体写的"文字"，
+为什么需要它：public/brand/shiftbar-logo-*.svg 里的 "ShiftBar" 字标是用 Bricolage Grotesque 字体写的"文字"，
 GitHub 显示 SVG 图片时不会加载网页字体，字标会退回成别的字体，和设计稿不一样。
-这个脚本把字标用 Fredoka 的真实字形转成矢量路径，图形部分保持不变，所以在哪里显示都一样。
+这个脚本把字标用 Bricolage Grotesque 的真实字形转成矢量路径，图形部分保持不变，所以在哪里显示都一样。
 public/brand 里的原文件不会被修改。
 
 用法（在仓库根目录）：
-    pip install fonttools
+    pip install fonttools brotli
     python scripts/make-readme-logo.py
 """
 import os
@@ -18,14 +18,18 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FONT = os.path.join(ROOT, 'node_modules', '@fontsource', 'fredoka', 'files', 'fredoka-latin-600-normal.woff')
+FONT = os.path.join(ROOT, 'node_modules', '@fontsource-variable', 'bricolage-grotesque', 'files', 'bricolage-grotesque-latin-wght-normal.woff2')
 if not os.path.exists(FONT):
-    sys.exit('找不到 Fredoka 字体文件，请先在仓库根目录运行 npm install')
+    sys.exit('找不到 Bricolage Grotesque 字体文件，请先在仓库根目录运行 npm install')
 
-font = TTFont(FONT)
+from fontTools.varLib.instancer import instantiateVariableFont
+font = instantiateVariableFont(TTFont(FONT), {'wght': 800})
 cmap = font.getBestCmap()
 glyphs = font.getGlyphSet()
 units_per_em = font['head'].unitsPerEm
+
+
+TRACKING = -0.03  # 字距，单位 em，和网页里字标的 tracking 一致
 
 
 def outline(text, x, y, size):
@@ -38,7 +42,7 @@ def outline(text, x, y, size):
         pen = SVGPathPen(glyphs, ntos=lambda v: ('%.2f' % v).rstrip('0').rstrip('.'))
         glyphs[name].draw(TransformPen(pen, (scale, 0, 0, -scale, cursor, y)))
         parts.append(pen.getCommands())
-        cursor += glyphs[name].width * scale
+        cursor += glyphs[name].width * scale + TRACKING * size
     return ''.join(parts), cursor - x
 
 

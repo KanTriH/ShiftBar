@@ -134,19 +134,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 /* ---------- Logo ---------- */
+// 图形与 public/brand/shiftbar-mark-*.svg 一致：4×3 的方格是时段，横跨三格的胶囊是一个班次，
+// 右下角陶土色的点是"此刻"。颜色走 CSS 变量，跟着浅色 / 深色主题切换。
+const LOGO_CELLS: [number, number][] = [[0, 0], [16, 0], [32, 0], [48, 0], [48, 16], [0, 32], [16, 32], [32, 32]]
+
 /**
- * ShiftBar 标识：三条错位的"班次条"（中间一条是陶土色）+ 字标。品牌名不翻译。
- * 尺寸全部用 em，外层给一个 text-* 字号就会等比缩放。
+ * ShiftBar 品牌标识：图形 + 字标（Bricolage Grotesque）。品牌名不翻译。
+ * 尺寸全部用 em，整个标识跟着外层的字号等比缩放：想放大就给 className 一个 text-* 字号。
  */
 export function Logo({ className }: { className?: string }) {
   return (
-    <span className={cn('inline-flex items-center gap-[0.45em]', className)}>
-      <svg viewBox="0 0 28 20" style={{ width: '1.5em', height: '1.07em' }} aria-hidden>
-        <rect x="0" y="0" width="17" height="5" rx="2.5" fill="var(--ink)" />
-        <rect x="0" y="7.5" width="26" height="5" rx="2.5" fill="var(--accent)" />
-        <rect x="0" y="15" width="11" height="5" rx="2.5" fill="var(--ink)" />
+    <span className={cn('inline-flex items-center gap-[0.5em]', className)}>
+      <svg viewBox="0 0 60 44" style={{ width: '1.7em', height: '1.25em' }} aria-hidden>
+        {LOGO_CELLS.map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width="12" height="12" rx="3" fill="var(--logo-cell)" />)}
+        <rect x="0" y="16" width="44" height="12" rx="6" fill="var(--ink)" />
+        <rect x="48" y="32" width="12" height="12" rx="3" fill="var(--accent)" />
       </svg>
-      <span className="font-display text-[1.15em] font-extrabold leading-none tracking-[-0.03em]">ShiftBar</span>
+      <span className="font-display text-[1.2em] font-extrabold leading-none tracking-[-0.03em]">ShiftBar</span>
     </span>
   )
 }
