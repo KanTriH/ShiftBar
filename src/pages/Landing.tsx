@@ -36,7 +36,8 @@ export default function Landing() {
     document.body.style.background = PALETTE['--bg' as keyof typeof PALETTE] as string
     return () => { document.body.style.background = prev }
   }, [])
-  const signup = () => nav('/auth?role=manager&mode=signup')
+  // 登录和注册是同一个入口：店长和员工都从这里进，注册时在页面上自己选身份
+  const signup = () => nav('/auth?mode=signup')
 
   const pill = 'inline-flex h-10 items-center justify-center rounded-full px-3.5 text-sm font-semibold whitespace-nowrap transition active:scale-[0.97] sm:h-11 sm:px-5 sm:text-[15px]'
 
@@ -48,7 +49,7 @@ export default function Landing() {
           <span className="mr-auto text-[15px] font-bold tracking-[0.12em] sm:hidden">SHIFTBAR</span>
           <LangSwitch className="!h-10 shrink-0" />
           <Link to="/auth" className={`${pill} border border-ink`}>{t('登录')}</Link>
-          <Link to="/auth?role=manager&mode=signup" className={`${pill} bg-ink text-surface hover:bg-ink/90`}>{t('开始使用')}</Link>
+          <Link to="/auth?mode=signup" className={`${pill} bg-ink text-surface hover:bg-ink/90`}>{t('开始使用')}</Link>
         </header>
 
         <div className="flex flex-1 flex-col items-center justify-center pb-6 pt-0 [--wm:clamp(4rem,16vw,16rem)]">
