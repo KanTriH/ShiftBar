@@ -1,100 +1,76 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight } from '@phosphor-icons/react'
-import { Button, Input, Logo, useToast } from '../components/ui'
+import { useToast } from '../components/ui'
+import { HeroStage } from '../components/HeroStage'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../data'
 import { DEMO_SHOP_CODE } from '../data/demoApi'
 import { LangSwitch } from '../i18n'
 import { translate as t } from '../i18n/core'
 
-const ROWS = [
-  { id: 1, avail: [0, 0.62], shifts: [{ a: 0, b: 0.5, c: '#c9532f', t: 'cashier' }] },
-  { id: 2, avail: [0.3, 1], shifts: [{ a: 0.42, b: 1, c: '#3a64c8', t: 'bar' }] },
-  { id: 3, avail: [0.15, 0.8], shifts: [{ a: 0.15, b: 0.55, c: '#1f7a6d', t: 'prep' }] },
-  { id: 4, avail: [0, 0.4], shifts: [{ a: 0, b: 0.38, c: '#1f7a6d', t: 'prep' }] },
-]
-
-/** 用与排班页相同的视觉语言拼出的迷你预览（半透明绿 = 员工可用，实色 = 已排班） */
-function TimelinePreview() {
-  return (
-    <div
-      className="w-full max-w-[34rem] rounded-panel border border-line bg-surface p-5 shadow-[0_18px_50px_-24px_color-mix(in_srgb,var(--accent)_45%,transparent)] lg:justify-self-end"
-      aria-hidden
-    >
-      <div className="mb-3 flex justify-between text-[11px] text-faint num"><span>09:00</span><span>13:00</span><span>17:00</span><span>21:00</span></div>
-      <div className="flex flex-col gap-2.5">
-        {ROWS.map((r) => (
-          <div key={r.id} className="relative h-10 rounded-control bg-sunken">
-            <div className="absolute inset-y-0 rounded-control bg-avail/25" style={{ left: `${r.avail[0] * 100}%`, width: `${(r.avail[1] - r.avail[0]) * 100}%` }} />
-            {r.shifts.map((s, i) => (
-              <div key={i} className="absolute inset-y-1 flex items-center rounded-[6px] px-2.5 text-[11px] font-medium text-white" style={{ left: `${s.a * 100}%`, width: `${(s.b - s.a) * 100}%`, background: s.c }}>{s.t}</div>
-            ))}
-          </div>
-        ))}
-      </div>
-      <p className="mt-4 flex items-center gap-2 text-xs text-mute">
-        <span className="inline-block h-3 w-5 rounded-sm bg-avail/25" />{t('员工报的可用时间')}
-        <span className="ml-3 inline-block h-3 w-5 rounded-sm bg-accent" />{t('店长排的班次')}
-      </p>
-    </div>
-  )
-}
+/** 首页自己的一套浅色暖调：和应用内页的深浅色主题无关，整页只用这一个主题 */
+const PALETTE = {
+  '--bg': '#f0f0ee', '--surface': '#fbfaf6', '--sunken': '#e7e5df', '--line': '#d8d5ce',
+  '--ink': '#171514', '--mute': '#67625b', '--faint': '#99948b',
+  '--accent': '#9c6445', '--accent-ink': '#ffffff', '--accent-soft': '#eadfd6',
+  colorScheme: 'light',
+} as React.CSSProperties
 
 export default function Landing() {
   const { user } = useAuth()
   const nav = useNavigate()
-  const [code, setCode] = useState('')
   const toast = useToast()
-  // 从别的页面带过来的一次性提示（例如注销账号成功）
+
   useEffect(() => {
     try {
       const msg = sessionStorage.getItem('shift-flash')
       if (msg) { sessionStorage.removeItem('shift-flash'); toast(msg) }
     } catch { /* ignore */ }
   }, [toast])
+  // 已登录的回访用户不需要再看一遍介绍，直接回到自己的页面
+  useEffect(() => { if (user) nav('/go', { replace: true }) }, [user, nav])
+  // 整页是浅色：连同页面边缘的底色一起换掉，离开时还原
+  useEffect(() => {
+    const prev = document.body.style.background
+    document.body.style.background = PALETTE['--bg' as keyof typeof PALETTE] as string
+    return () => { document.body.style.background = prev }
+  }, [])
+  const signup = () => nav('/auth?role=manager&mode=signup')
+
+  const pill = 'inline-flex h-10 items-center justify-center rounded-full px-3.5 text-sm font-semibold whitespace-nowrap transition active:scale-[0.97] sm:h-11 sm:px-5 sm:text-[15px]'
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-4 sm:px-6">
-      {/* 首屏正文里已经有放大的品牌标识，页头不再重复放一个小的 */}
-      <header className="flex h-16 items-center justify-end gap-2">
-        <LangSwitch />
-        {user
-          ? <Link to="/go" className="rounded-control px-2.5 py-1.5 text-sm font-medium text-accent hover:bg-accent-soft">{t('进入我的页面')}</Link>
-          : <Link to="/auth" className="rounded-control px-2.5 py-1.5 text-sm font-medium text-mute hover:bg-sunken hover:text-ink">{t('登录')}</Link>}
-      </header>
+    <div className="relative min-h-[100dvh] overflow-clip bg-bg text-ink" style={PALETTE}>
+      <section className="relative flex min-h-[100dvh] flex-col px-4 sm:px-8">
+        <header className="relative flex h-20 items-center justify-end gap-1.5 sm:gap-2">
+          <span className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 text-[15px] font-bold tracking-[0.12em] sm:block">— SHIFTBAR —</span>
+          <span className="mr-auto text-[15px] font-bold tracking-[0.12em] sm:hidden">SHIFTBAR</span>
+          <LangSwitch className="!h-10 shrink-0" />
+          <Link to="/auth" className={`${pill} border border-ink`}>{t('登录')}</Link>
+          <Link to="/auth?role=manager&mode=signup" className={`${pill} bg-ink text-surface hover:bg-ink/90`}>{t('开始使用')}</Link>
+        </header>
 
-      <main className="grid flex-1 items-center gap-12 pb-16 pt-4 lg:grid-cols-[1fr_1.05fr] lg:gap-20">
-        <div>
-          <h1><Logo className="text-[clamp(2.5rem,6.5vw,4.25rem)]" /></h1>
-          <p className="mt-6 max-w-[34rem] break-keep text-lg leading-relaxed text-balance text-mute">{t('员工在线报班，店长在时间轴上拖拽排班，发布后员工一键导入日历。')}</p>
-          <Button variant="primary" className="mt-8 h-12 w-full px-6 text-base sm:w-auto" onClick={() => nav('/auth?role=manager&mode=signup')}>
-            {t('我是店长')}<ArrowRight size={18} />
-          </Button>
-
-          <form
-            className="mt-10 max-w-[34rem] rounded-panel border border-line bg-surface p-4 lg:max-w-md"
-            onSubmit={(e) => { e.preventDefault(); const c = code.trim(); if (c) nav(`/s/${c}`) }}
-          >
-            <label className="block text-sm font-semibold" htmlFor="code">{t('我是员工，用店铺码报班')}</label>
-            <div className="mt-3 flex gap-2">
-              <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder={t('向店长要店铺码或链接')} />
-              <Button type="submit" variant="secondary" disabled={!code.trim()}>{t('进入')}</Button>
-            </div>
-            <p className="mt-2.5 text-xs leading-relaxed text-mute">{t('不用注册也能报班。注册后可以查看班表并导入日历。')}</p>
-          </form>
+        <div className="flex flex-1 flex-col items-center justify-center pb-6 pt-0 [--wm:clamp(4rem,16vw,16rem)]">
+          <h1 aria-label="ShiftBar" className="relative z-0 select-none whitespace-nowrap text-center leading-[0.8]" style={{ fontSize: 'var(--wm)', letterSpacing: '-0.075em', fontFamily: '"Bricolage Grotesque Variable", "Geist Variable", system-ui, sans-serif', fontWeight: 800 }}>
+            Shift<span style={{ color: 'var(--accent)' }}>B</span>ar
+          </h1>
+          <HeroStage className="relative z-10 w-[min(92vw,calc(var(--wm)*2.7))] min-w-[min(92vw,22rem)] [margin-top:calc(var(--wm)*-0.2)]" />
+          <p className="mt-7 text-center text-lg text-mute sm:text-xl">{t('在线报班 · 拖拽排班 · 导入日历')}</p>
+          <div className="mt-5 flex items-center gap-2.5">
+            <button onClick={signup} className={`${pill} h-14 bg-ink px-8 text-lg text-surface hover:bg-ink/90`}>{t('开始使用')}</button>
+            <button onClick={signup} aria-label={t('开始使用')} className="grid h-14 w-14 place-items-center rounded-full bg-ink text-surface transition hover:bg-ink/90 active:scale-95"><ArrowRight size={20} weight="bold" /></button>
+          </div>
+          <p className="mt-5 text-sm text-mute">{t('已有账号？')}<Link to="/auth" className="font-semibold text-ink underline underline-offset-2">{t('登录')}</Link></p>
         </div>
-        <TimelinePreview />
-      </main>
-
-      {api.mode === 'demo' && (
-        <footer className="pb-6">
-          <p className="mx-auto w-fit max-w-full rounded-full bg-accent-soft px-4 py-1.5 text-center text-xs text-accent">
+        {api.mode === 'demo' && (
+          <p className="mx-auto mb-4 w-fit max-w-full rounded-full bg-accent-soft px-4 py-1.5 text-center text-xs text-accent">
             {t('演示模式：还没连接 Supabase，数据只保存在这个浏览器。演示店铺码：')}
-            <button className="num font-semibold underline" onClick={() => setCode(DEMO_SHOP_CODE)}>{DEMO_SHOP_CODE}</button>
+            <Link to={`/s/${DEMO_SHOP_CODE}`} className="num font-semibold underline">{DEMO_SHOP_CODE}</Link>
           </p>
-        </footer>
-      )}
+        )}
+      </section>
+
     </div>
   )
 }

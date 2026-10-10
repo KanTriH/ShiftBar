@@ -1,49 +1,75 @@
 @import "tailwindcss";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
-@import "@fontsource/fredoka/latin-600.css"; /* ShiftBar 字标 */
+@import "@fontsource-variable/noto-sans-sc"; /* 中文，所有字号 */
+@import "@fontsource-variable/bricolage-grotesque"; /* 首页大字标 */
 
 :root {
-  --bg: #f4f5f7;
-  --surface: #ffffff;
-  --sunken: #eceef1;
-  --line: #e0e3e8;
-  --ink: #16181d;
-  --mute: #5b6473;
-  --faint: #8a93a1;
-  --accent: #2f5fd0;
+  /* 内部页面配色：取自 palette/App Palette.png。暖米白 + 墨黑，陶土色只标"此刻"，岗位色负责区分 */
+  --bg: #f4f2ee;
+  --surface: #fbfaf7;
+  --sunken: #efebe5;          /* surface-2：表头 / hover */
+  --line: #e2dcd3;
+  --line-strong: #cfc5b8;
+  --ink: #161514;
+  --ink-2: #4a4540;
+  --mute: #6b655e;
+  --faint: #9a9288;
+  --hero: #ddd5c9;            /* "下一班"大卡片的底色 */
+  --accent: #a8694a;          /* 陶土：选中、此刻 */
   --accent-ink: #ffffff;
-  --accent-soft: #e6ecfa;
-  --avail: #22a06b;
-  --danger: #d1372e;
-  --warn: #b7791f;
-  /* ShiftBar logo 配色，取自 public/brand/shiftbar-mark-light.svg */
-  --logo-cell: #d8deea;
-  --logo-bar: #1f3a72;
-  --logo-dot: #0b0d10;
-  --logo-ink: #1f3a72;
+  --accent-soft: #f1e4da;
+  --avail: #5e7a4e;           /* success：已发布、可用 */
+  --avail-soft: #e3e8d9;
+  --warn: #b7832f;            /* 草稿、试工 */
+  --warn-soft: #f5e9d2;
+  --danger: #a8473c;          /* 冲突、删除 */
+  --danger-soft: #f3deda;
+  --off: #b5ada3;             /* 不可上班 */
+  --off-soft: #eae5de;
+  --off-ink: #4a443e;
+  /* 岗位色 fill / border / text，固定 6 个 */
+  /* Logo：方格 + 墨黑班次条 + 陶土色"此刻"点 */
+  --logo-cell: #dcd3c7;
+  --role-clay-fill: #d9c3b0;  --role-clay-border: #a8694a;  --role-clay-text: #4a2e1f;
+  --role-sage-fill: #c9cdb6;  --role-sage-border: #7e8a5c;  --role-sage-text: #3a4128;
+  --role-mist-fill: #c8d0d6;  --role-mist-border: #5f7280;  --role-mist-text: #26323b;
+  --role-plum-fill: #d6c8d0;  --role-plum-border: #85667a;  --role-plum-text: #3e2a36;
+  --role-sand-fill: #e4d9b8;  --role-sand-border: #a08a4c;  --role-sand-text: #4a3e1c;
+  --role-stone-fill: #d2ccc4; --role-stone-border: #7a7268; --role-stone-text: #332f2a;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1114;
-    --surface: #171a1f;
-    --sunken: #1e2229;
-    --line: #2a2f38;
-    --ink: #eceef2;
-    --mute: #a0a9b6;
-    --faint: #6f7886;
-    --accent: #7a9cf5;
-    --accent-ink: #0b1020;
-    --accent-soft: #1d2842;
-    --avail: #3ec48a;
-    --danger: #f0655c;
-    --warn: #e0a84a;
-    /* 取自 public/brand/shiftbar-mark-dark.svg */
-    --logo-cell: #24345a;
-    --logo-bar: #f0e9d2;
-    --logo-dot: #f0e9d2;
-    --logo-ink: #f0e9d2;
+    --bg: #141312;
+    --surface: #1c1a18;
+    --sunken: #24211e;
+    --line: #2e2a26;
+    --line-strong: #3a3530;
+    --ink: #f4f2ee;
+    --ink-2: #c9c2b8;
+    --mute: #9a9288;
+    --faint: #6f685f;
+    --hero: #2b2824;
+    --accent: #d19a78;
+    --accent-ink: #1c1a18;
+    --accent-soft: #3b2b21;
+    --avail: #9db38a;
+    --avail-soft: #2d3626;
+    --warn: #d9ae62;
+    --warn-soft: #3d3018;
+    --danger: #d98476;
+    --danger-soft: #3d211d;
+    --off: #4a443e;
+    --off-soft: #2a2622;
+    --off-ink: #b5ada3;
+    --logo-cell: #3b3530;
+    --role-clay-fill: #4a3427;  --role-clay-border: #d19a78;  --role-clay-text: #f1ddcd;
+    --role-sage-fill: #363c2a;  --role-sage-border: #9db38a;  --role-sage-text: #dde3c8;
+    --role-mist-fill: #2c3740;  --role-mist-border: #8fa3b2;  --role-mist-text: #d3dee6;
+    --role-plum-fill: #3e2c37;  --role-plum-border: #b794a9;  --role-plum-text: #ead6e1;
+    --role-sand-fill: #433b22;  --role-sand-border: #c9b27a;  --role-sand-text: #ede0b8;
+    --role-stone-fill: #35312c; --role-stone-border: #a39b90; --role-stone-text: #e2dcd3;
     color-scheme: dark;
   }
 }
@@ -62,11 +88,15 @@
   --color-avail: var(--avail);
   --color-danger: var(--danger);
   --color-warn: var(--warn);
-  --font-sans: "Geist Variable", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --color-ink-2: var(--ink-2);
+  --color-line-strong: var(--line-strong);
+  --color-hero: var(--hero);
+  --color-off: var(--off);
+  --font-sans: "Geist Variable", "Noto Sans SC Variable", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", monospace;
-  --font-logo: "Fredoka", "Nunito", "Geist Variable", system-ui, sans-serif;
-  --radius-control: 8px;
-  --radius-panel: 12px;
+  --font-display: "Bricolage Grotesque Variable", "Geist Variable", "Noto Sans SC Variable", system-ui, sans-serif;
+  --radius-control: 12px;
+  --radius-panel: 22px;
 }
 
 html, body, #root { min-height: 100dvh; }
@@ -102,4 +132,28 @@ input[type="time"]::-webkit-calendar-picker-indicator { opacity: .5; }
 @page { size: A4; margin: 12mm; }
 @media print {
   html, body { background: #fff !important; }
+}
+
+/* 首页排班卡片的入场与循环动画（HeroStage）。9s 一个循环：拎起、拖到别处、放下、再拖回 */
+@keyframes hs-grow { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
+@keyframes hs-drag {
+  0%, 10% { transform: translate3d(0, 0, 0) scale(1); background-color: var(--blk); color: var(--ink); box-shadow: 0 0 0 0 transparent; }
+  18% { transform: translate3d(0, -4px, 24px) scale(1.04); background-color: var(--ink); color: #fff; box-shadow: 0 16px 24px -10px rgb(30 20 10 / 0.45); }
+  40% { transform: translate3d(-50%, -4px, 24px) scale(1.04); background-color: var(--ink); color: #fff; box-shadow: 0 16px 24px -10px rgb(30 20 10 / 0.45); }
+  48%, 66% { transform: translate3d(-50%, 0, 0) scale(1); background-color: var(--blk); color: var(--ink); box-shadow: 0 0 0 0 transparent; }
+  74% { transform: translate3d(-50%, -4px, 24px) scale(1.04); background-color: var(--ink); color: #fff; box-shadow: 0 16px 24px -10px rgb(30 20 10 / 0.45); }
+  94% { transform: translate3d(0, -4px, 24px) scale(1.04); background-color: var(--ink); color: #fff; box-shadow: 0 16px 24px -10px rgb(30 20 10 / 0.45); }
+  100% { transform: translate3d(0, 0, 0) scale(1); background-color: var(--blk); color: var(--ink); box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes hs-ghost-a { 0%, 12% { opacity: 0; } 18%, 44% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes hs-ghost-b { 0%, 70% { opacity: 0; } 74%, 94% { opacity: 1; } 98%, 100% { opacity: 0; } }
+@keyframes hs-cursor { 0%, 12% { opacity: 0; } 18%, 42% { opacity: 1; } 48%, 70% { opacity: 0; } 74%, 94% { opacity: 1; } 100% { opacity: 0; } }
+.hs-cursor { opacity: 0; }
+.hs-ghost-a, .hs-ghost-b { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .hs-grow, .hs-place { transform-origin: left center; animation: hs-grow 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: var(--d, 0s); }
+  .hs-drag { animation: hs-drag 9s cubic-bezier(0.45, 0, 0.25, 1) 3s infinite; }
+  .hs-ghost-a { animation: hs-ghost-a 9s linear 3s infinite; }
+  .hs-ghost-b { animation: hs-ghost-b 9s linear 3s infinite; }
+  .hs-cursor { animation: hs-cursor 9s linear 3s infinite; }
 }

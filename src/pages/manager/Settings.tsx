@@ -6,6 +6,7 @@ import { api } from '../../data'
 import { errMsg } from '../../lib/errors'
 import type { Location, Position, WeekHours } from '../../lib/types'
 import { SettingsTabs } from './ScheduleSettings'
+import { roleDot, roleOf } from '../../lib/roles'
 import { POSITION_COLORS } from '../../lib/types'
 import { dayLabel, inputTime, isNextDay, parseEndAfter, parseHM } from '../../lib/time'
 import { translate as t } from '../../i18n/core'
@@ -145,7 +146,7 @@ function PositionRow({ p, onChanged }: { p: Position; onChanged: () => Promise<v
   }
   return (
     <li className="flex flex-wrap items-center gap-3 px-4 py-2.5">
-      <button onClick={() => setOpen(!open)} aria-label={t('更换颜色')} aria-expanded={open} className="press h-6 w-6 shrink-0 rounded-full ring-2 ring-line ring-offset-2 ring-offset-surface" style={{ background: p.color }} />
+      <button onClick={() => setOpen(!open)} aria-label={t('更换颜色')} aria-expanded={open} className="press h-6 w-6 shrink-0 rounded-full ring-2 ring-line ring-offset-2 ring-offset-surface" style={{ background: roleDot(p.color) }} />
       <input defaultValue={p.name} maxLength={30} aria-label={t('岗位名称')} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== p.name && patch({ name: e.target.value.trim() })}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         className="h-8 min-w-0 flex-1 rounded-control bg-transparent px-2 text-sm font-medium hover:bg-sunken focus:bg-sunken focus:outline-none" />
@@ -153,7 +154,7 @@ function PositionRow({ p, onChanged }: { p: Position; onChanged: () => Promise<v
       {open && (
         <div className="flex w-full flex-wrap gap-2 pt-1">
           {POSITION_COLORS.map((c) => (
-            <button key={c} onClick={() => { patch({ color: c }); setOpen(false) }} aria-label={t('颜色 {c}', { c })} className={cn('press h-7 w-7 rounded-full', p.color === c && 'ring-2 ring-ink ring-offset-2 ring-offset-surface')} style={{ background: c }} />
+            <button key={c} onClick={() => { patch({ color: c }); setOpen(false) }} aria-label={t('颜色 {c}', { c })} className={cn('press h-7 w-7 rounded-full', roleOf(p.color) === roleOf(c) && 'ring-2 ring-ink ring-offset-2 ring-offset-surface')} style={{ background: roleDot(c) }} />
           ))}
         </div>
       )}

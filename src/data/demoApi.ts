@@ -44,9 +44,9 @@ function seed(): DB {
     { id: 'l-north', shop_id: 's1', name: '北区店', sort: 1 },
   ]
   const pos: Position[] = [
-    { id: 'p-prep', shop_id: 's1', name: 'prep', color: POSITION_COLORS[1], sort: 0 },
-    { id: 'p-bar', shop_id: 's1', name: 'bar', color: POSITION_COLORS[2], sort: 1 },
-    { id: 'p-cash', shop_id: 's1', name: 'cashier', color: POSITION_COLORS[0], sort: 2 },
+    { id: 'p-prep', shop_id: 's1', name: 'prep', color: POSITION_COLORS[0], sort: 0 },
+    { id: 'p-bar', shop_id: 's1', name: 'bar', color: POSITION_COLORS[1], sort: 1 },
+    { id: 'p-cash', shop_id: 's1', name: 'cashier', color: POSITION_COLORS[4], sort: 2 },
   ]
   const names: [string, Member['status'], string | null][] = [
     ['林晓', 'regular', lin.id], ['周屿', 'regular', null], ['陈嘉禾', 'trial', null],

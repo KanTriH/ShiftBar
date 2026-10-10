@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CaretLeft, CaretRight, CheckCircle, FilePdf, Flag, PaperPlaneTilt } from '@phosphor-icons/react'
+import { ArrowRight, CaretLeft, CaretRight, CheckCircle, Flag } from '@phosphor-icons/react'
 import { Badge, Button, Empty, Segmented, Skeleton, cn, useToast } from '../../components/ui'
 import { DayTimeline } from '../../components/DayTimeline'
 import { useManager } from './ManagerLayout'
@@ -8,6 +8,7 @@ import { api } from '../../data'
 import { errMsg } from '../../lib/errors'
 import { holidayLabel, holidayOn } from '../../lib/holidays'
 import { translate as t } from '../../i18n/core'
+import { roleDot, roleStyle } from '../../lib/roles'
 import type { Availability, DailyTask, Shift, ShiftInput } from '../../lib/types'
 import { addDays, dayLabel, fmtDay, fmtHours, fmtMD, fmtRangeShort, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
 
@@ -124,18 +125,18 @@ export default function SchedulePage() {
     <div className="flex flex-col gap-5">
       {/* 周切换 + 发布 */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1">
-          <Button size="sm" onClick={() => changeWeek(addDays(week, -7))} aria-label={t('上一周')}><CaretLeft size={16} /></Button>
-          <span className="num min-w-[10rem] text-center text-sm font-medium">{fmtRangeShort(days[0], days[6])}</span>
-          <Button size="sm" onClick={() => changeWeek(addDays(week, 7))} aria-label={t('下一周')}><CaretRight size={16} /></Button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => changeWeek(addDays(week, -7))} aria-label={t('上一周')} className="press grid h-11 w-11 place-items-center rounded-full border border-line-strong hover:bg-sunken"><CaretLeft size={16} /></button>
+          <span className="num min-w-[10rem] text-center text-xl font-semibold tracking-tight">{fmtRangeShort(days[0], days[6])}</span>
+          <button onClick={() => changeWeek(addDays(week, 7))} aria-label={t('下一周')} className="press grid h-11 w-11 place-items-center rounded-full border border-line-strong hover:bg-sunken"><CaretRight size={16} /></button>
           {week !== weekStart(todayISO(), wsd) && <Button size="sm" variant="ghost" onClick={() => changeWeek(weekStart(todayISO(), wsd))}>{t('回到本周')}</Button>}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="num hidden text-sm text-mute sm:inline">{locations.length > 1 ? t('{loc} {h} 小时', { loc: loc?.name ?? '', h: fmtHours(weekMin) }) : t('本周共 {h} 小时', { h: fmtHours(weekMin) })}</span>
-          {isPublished ? <Badge tone="good">{t('已发布')}</Badge> : <Badge>{t('草稿')}</Badge>}
-          <Link to={`/manager/print?week=${week}`}><Button size="sm"><FilePdf size={15} />{t('导出 PDF')}</Button></Link>
-          <Button variant={isPublished ? 'secondary' : 'primary'} size="sm" onClick={togglePublish}>
-            {isPublished ? <>{t('撤回发布')}</> : <><PaperPlaneTilt size={15} />{t('发布本周')}</>}
+          {isPublished ? <Badge tone="good">{t('已发布')}</Badge> : <Badge tone="warn">{t('草稿')}</Badge>}
+          <Link to={`/manager/print?week=${week}`}><Button>{t('导出 PDF')}</Button></Link>
+          <Button variant={isPublished ? 'secondary' : 'primary'} onClick={togglePublish}>
+            {isPublished ? t('撤回发布') : <>{t('发布本周')}<ArrowRight size={16} /></>}
           </Button>
         </div>
       </div>
@@ -157,8 +158,8 @@ export default function SchedulePage() {
           const hol = holidayOn(d, shop.region)
           return (
             <button key={d} role="tab" aria-selected={sel} onClick={() => setDay(d)} title={hol ? holidayLabel(hol) : undefined}
-              className={cn('press relative flex flex-col items-center gap-0.5 rounded-control border px-1 py-2 text-center', sel ? 'border-accent bg-accent-soft text-accent' : 'border-line bg-surface hover:bg-sunken', !h && !sel && 'opacity-55')}>
-              <span className="text-xs font-medium">{dayLabel(weekdayIdx(d))}</span>
+              className={cn('press relative flex flex-col items-center gap-0.5 rounded-2xl border px-1 py-3 text-center', sel ? 'border-accent bg-accent-soft text-accent' : 'border-line bg-surface hover:bg-sunken', !h && !sel && 'opacity-55')}>
+              <span className="text-sm font-semibold">{dayLabel(weekdayIdx(d))}</span>
               <span className="num text-[11px] text-mute">{fmtMD(d)}</span>
               <span className={cn('num text-[11px]', sel ? 'text-accent' : 'text-faint')}>{h ? (n ? t('{n} 个班', { n }) : t('未排')) : t('休息')}</span>
               {hol && <Flag size={12} weight="fill" className="absolute right-1 top-1 text-warn" aria-label={t('法定假日')} />}
@@ -168,7 +169,7 @@ export default function SchedulePage() {
       </div>
 
       {holiday && (
-        <p className="flex items-start gap-2 rounded-control bg-warn/15 px-3 py-2 text-sm text-warn" role="note">
+        <p className="flex items-start gap-2 rounded-2xl bg-warn-soft px-4 py-3 text-sm text-warn" role="note">
           <Flag size={16} weight="fill" className="mt-0.5 shrink-0" />
           <span>{t('{date}是法定假日：', { date: fmtDay(day) })}<strong className="font-semibold">{holidayLabel(holiday)}</strong>{t('。排班前请确认假日用工和工资规定。')}</span>
         </p>
@@ -179,9 +180,9 @@ export default function SchedulePage() {
         <span className="text-sm text-mute">{t('新班次的岗位')}</span>
         {positions.map((p) => (
           <button key={p.id} onClick={() => setBrush(p.id)} aria-pressed={brush === p.id}
-            className={cn('press flex h-8 items-center gap-2 rounded-full border px-3 text-[13px] font-medium', brush === p.id ? 'border-transparent text-white' : 'border-line bg-surface text-mute hover:bg-sunken')}
-            style={brush === p.id ? { background: p.color } : undefined}>
-            {brush !== p.id && <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} />}{p.name}
+            className={cn('press flex h-9 items-center gap-2 rounded-full border px-3.5 text-[13px] font-semibold', brush !== p.id && 'border-line bg-surface text-mute hover:bg-sunken')}
+            style={brush === p.id ? roleStyle(p.color) : undefined}>
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: roleDot(p.color) }} />{p.name}
           </button>
         ))}
         {positions.length === 0 && <Link to="/manager/settings" className="text-sm font-medium text-accent">{t('先添加岗位标签')}</Link>}
@@ -198,12 +199,12 @@ export default function SchedulePage() {
             shifts={dayShifts} otherShifts={otherShifts} locationNames={locationNames} avail={dayAvail} submitted={submitted} brushId={brush}
             onCreate={(input) => create({ ...input, location_id: loc.id })} onUpdate={update} onDelete={remove}
           />
-          <section className="rounded-panel border border-line bg-surface p-4">
+          <section className="rounded-[22px] border border-line bg-surface p-5">
             <label htmlFor="daily-task" className="text-sm font-semibold">{t('当日任务 Daily Task')}</label>
             <p className="mt-0.5 text-xs text-mute">{locations.length > 1 ? t('这一天在「{loc}」上班的人都需要做的事，一行一件。发布后员工可见，也会印在导出的班表里。', { loc: loc.name }) : t('这一天上班的人都需要做的事，一行一件。发布后员工可见，也会印在导出的班表里。')}</p>
             <textarea id="daily-task" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={saveTask} rows={3} maxLength={2000}
               placeholder={t('例如：盘点库存、擦窗户、关闭制冰机')}
-              className="mt-2 w-full resize-y rounded-control border border-line bg-bg px-3 py-2 text-sm placeholder:text-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25" />
+              className="mt-2 w-full resize-y rounded-2xl border border-line-strong bg-bg px-4 py-3 text-sm placeholder:text-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25" />
           </section>
         </>
       )}
