@@ -176,28 +176,6 @@ export function DayTimeline(props: Props) {
     return slots
   }, [view, hours])
 
-  const unavail = useMemo(() => {
-    const out = new Map<string, [number, number][]>()
-    for (const m of members) {
-      if (!submitted.has(m.id)) continue
-      const mine = mergeIntervals(avail.filter((a) => a.member_id === m.id).map((a) => [a.start_min, a.end_min] as [number, number]))
-      const gaps: [number, number][] = []
-      let cur = hours.open
-      for (const [a, b] of mine) {
-        if (a > cur) gaps.push([cur, Math.min(a, hours.close)])
-        cur = Math.max(cur, b)
-      }
-      if (cur < hours.close) gaps.push([cur, hours.close])
-      out.set(m.id, gaps.filter(([a, b]) => b > a))
-    }
-    return out
-  }, [members, submitted, avail, hours])
-  const unavailText = (memberId: string) => {
-    const g = unavail.get(memberId) ?? []
-    if (!g.length) return null
-    if (g.length === 1 && g[0][0] <= hours.open && g[0][1] >= hours.close) return tr('全天不可上')
-    return tr('不可上 {a} - {b}', { a: fmtMin(g[0][0]), b: fmtMin(g[0][1]) }) + (g.length > 1 ? ' …' : '')
-  }
   const dayMin = (memberId: string) => view.filter((s) => s.member_id === memberId).reduce((n, s) => n + s.end_min - s.start_min, 0)
   const hourStep = px >= 1.5 ? 60 : 120
   const ticks: number[] = []
@@ -222,9 +200,7 @@ export function DayTimeline(props: Props) {
                   {m.status === 'trial' && <Badge tone="warn">{tr('试工')}</Badge>}
                 </div>
                 <span className="num text-[11px] text-mute">
-                  {!submitted.has(m.id) ? <span className="text-faint">{tr('未报班')}</span>
-                    : dayMin(m.id) > 0 ? tr('当天 {h}h', { h: fmtHours(dayMin(m.id)) })
-                    : <span className="text-faint">{unavailText(m.id) ?? tr('当天 {h}h', { h: '0' })}</span>}
+                  {submitted.has(m.id) ? tr('当天 {h}h', { h: fmtHours(dayMin(m.id)) }) : <span className="text-faint">{tr('未报班')}</span>}
                 </span>
               </div>
             ))}
@@ -246,12 +222,11 @@ export function DayTimeline(props: Props) {
               {members.map((m, i) => (
                 <div key={m.id} onPointerDown={onLaneDown} className="absolute inset-x-0 cursor-crosshair border-b border-line" style={{ top: i * ROW_H, height: ROW_H }} data-lane />
               ))}
-              {/* 员工不可上班的时间：斜纹（报了班、但这段时间没有可用） */}
-              {members.flatMap((m) => (unavail.get(m.id) ?? []).map(([a, b]) => {
-                const i = rowOf.get(m.id); if (i === undefined) return null
-                return <div key={`${m.id}-${a}`} className="pointer-events-none absolute rounded-xl" title={tr('不可上班')}
-                  style={{ top: i * ROW_H + 6, height: ROW_H - 12, left: left(a), width: (b - a) * px, background: 'repeating-linear-gradient(135deg, var(--off-soft) 0 6px, var(--line) 6px 12px)', opacity: 0.9 }} />
-              }))}
+              {/* 员工报的可用时间：半透明的绿色时间条 */}
+              {avail.map((a) => {
+                const i = rowOf.get(a.member_id); if (i === undefined) return null
+                return <div key={a.id} className="pointer-events-none absolute rounded-xl border border-avail/40 bg-avail/25" title={a.note || undefined} style={{ top: i * ROW_H + 6, height: ROW_H - 12, left: left(a.start_min), width: (a.end_min - a.start_min) * px }} />
+              })}
               {/* 同一个人在其他门店的班次：灰色斜纹，只读 */}
               {otherShifts.map((o) => {
                 const i = rowOf.get(o.member_id); if (i === undefined) return null
@@ -324,7 +299,7 @@ export function DayTimeline(props: Props) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-mute">
-        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm" style={{ background: 'repeating-linear-gradient(135deg, var(--off-soft) 0 3px, var(--line) 3px 6px)' }} />{tr('不可上班')}</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm border border-avail/40 bg-avail/25" />{tr('员工可用时间')}</span>
         <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-full bg-sunken ring-2 ring-danger ring-offset-1 ring-offset-bg" />{tr('超出可用时间或时间重叠')}</span>
         {otherShifts.length > 0 && <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm border border-line" style={{ background: 'repeating-linear-gradient(135deg, var(--sunken) 0 3px, var(--line) 3px 6px)' }} />{tr('在其他门店的班次')}</span>}
         <span className="hidden lg:inline">{tr('在员工那一行拖动来创建班次；拖动班次移动，拖两端调整时长；点击编辑，右键删除。')}</span>
