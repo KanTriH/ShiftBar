@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/shiftbar-logo-dark.svg">
-    <img alt="ShiftBar" src="docs/assets/shiftbar-logo-light.svg" width="230">
-  </picture>
+  <a href="https://shift-scheduler-pi-ten.vercel.app/"><img alt="ShiftBar 首页：超大的字标，下面是一张可以拖动班次的排班卡片" src="docs/screenshots/zh/landing.png" width="900"></a>
 </p>
 
 <h3 align="center">小店排班工具</h3>

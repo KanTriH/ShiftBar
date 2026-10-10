@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/shiftbar-logo-dark.svg">
-    <img alt="ShiftBar" src="docs/assets/shiftbar-logo-light.svg" width="230">
-  </picture>
+  <a href="https://shift-scheduler-pi-ten.vercel.app/"><img alt="ShiftBar home page: an oversized wordmark above a schedule card with a draggable shift" src="docs/screenshots/en/landing.png" width="900"></a>
 </p>
 
 <h3 align="center">Shift scheduling for small shops</h3>
