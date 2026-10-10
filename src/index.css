@@ -104,18 +104,26 @@ input[type="time"]::-webkit-calendar-picker-indicator { opacity: .5; }
   html, body { background: #fff !important; }
 }
 
-/* 首页预览卡片的入场与循环动画（HeroStage） */
+/* 首页排班卡片的入场与循环动画（HeroStage）。9s 一个循环：拎起、拖到别处、放下、再拖回 */
 @keyframes hs-grow { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
 @keyframes hs-drag {
-  0%, 10% { transform: translate3d(0, 0, 0) scale(1); box-shadow: 0 0 0 0 transparent; }
-  18% { transform: translate3d(0, -3px, 22px) scale(1.04); box-shadow: 0 14px 26px -10px rgb(0 0 0 / 0.5); }
-  40% { transform: translate3d(-50%, -3px, 22px) scale(1.04); box-shadow: 0 14px 26px -10px rgb(0 0 0 / 0.5); }
-  48%, 66% { transform: translate3d(-50%, 0, 0) scale(1); box-shadow: 0 0 0 0 transparent; }
-  74% { transform: translate3d(-50%, -3px, 22px) scale(1.04); box-shadow: 0 14px 26px -10px rgb(0 0 0 / 0.5); }
-  94% { transform: translate3d(0, -3px, 22px) scale(1.04); box-shadow: 0 14px 26px -10px rgb(0 0 0 / 0.5); }
-  100% { transform: translate3d(0, 0, 0) scale(1); box-shadow: 0 0 0 0 transparent; }
+  0%, 10% { transform: translate3d(0, 0, 0) scale(1); background-color: var(--blk); color: var(--ink); box-shadow: 0 0 0 0 transparent; }
+  18% { transform: translate3d(0, -4px, 24px) scale(1.04); background-color: var(--ink); color: #fff; box-shadow: 0 16px 24px -10px rgb(30 20 10 / 0.45); }
+  40% { transform: translate3d(-50%, -4px, 24px) scale(1.04); background-color: var(--ink); color: #fff; box-shadow: 0 16px 24px -10px rgb(30 20 10 / 0.45); }
+  48%, 66% { transform: translate3d(-50%, 0, 0) scale(1); background-color: var(--blk); color: var(--ink); box-shadow: 0 0 0 0 transparent; }
+  74% { transform: translate3d(-50%, -4px, 24px) scale(1.04); background-color: var(--ink); color: #fff; box-shadow: 0 16px 24px -10px rgb(30 20 10 / 0.45); }
+  94% { transform: translate3d(0, -4px, 24px) scale(1.04); background-color: var(--ink); color: #fff; box-shadow: 0 16px 24px -10px rgb(30 20 10 / 0.45); }
+  100% { transform: translate3d(0, 0, 0) scale(1); background-color: var(--blk); color: var(--ink); box-shadow: 0 0 0 0 transparent; }
 }
+@keyframes hs-ghost-a { 0%, 12% { opacity: 0; } 18%, 44% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes hs-ghost-b { 0%, 70% { opacity: 0; } 74%, 94% { opacity: 1; } 98%, 100% { opacity: 0; } }
+@keyframes hs-cursor { 0%, 12% { opacity: 0; } 18%, 42% { opacity: 1; } 48%, 70% { opacity: 0; } 74%, 94% { opacity: 1; } 100% { opacity: 0; } }
+.hs-cursor { opacity: 0; }
+.hs-ghost-a, .hs-ghost-b { opacity: 0; }
 @media (prefers-reduced-motion: no-preference) {
   .hs-grow, .hs-place { transform-origin: left center; animation: hs-grow 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: var(--d, 0s); }
   .hs-drag { animation: hs-drag 9s cubic-bezier(0.45, 0, 0.25, 1) 3s infinite; }
+  .hs-ghost-a { animation: hs-ghost-a 9s linear 3s infinite; }
+  .hs-ghost-b { animation: hs-ghost-b 9s linear 3s infinite; }
+  .hs-cursor { animation: hs-cursor 9s linear 3s infinite; }
 }
