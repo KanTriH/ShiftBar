@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/noto-sans-sc"; /* 中文，所有字号 */
 @import "@fontsource-variable/bricolage-grotesque"; /* 首页大字标 */
 @import "@fontsource/fredoka/latin-600.css"; /* ShiftBar 字标 */
 
@@ -63,7 +64,7 @@
   --color-avail: var(--avail);
   --color-danger: var(--danger);
   --color-warn: var(--warn);
-  --font-sans: "Geist Variable", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-sans: "Geist Variable", "Noto Sans SC Variable", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", monospace;
   --font-logo: "Fredoka", "Nunito", "Geist Variable", system-ui, sans-serif;
   --radius-control: 8px;
