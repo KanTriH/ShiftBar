@@ -39,7 +39,8 @@ export default function Auth() {
   const { user } = useAuth()
   const next = params.get('next')
   const [mode, setMode] = useState<Mode>(params.get('mode') === 'signup' ? 'signup' : 'login')
-  const [role, setRole] = useState<Role>(params.get('role') === 'manager' ? 'manager' : 'staff')
+  // 从首页进来时不预设身份，注册时让用户自己选；从店长 / 员工专属地址跳来的才带上身份
+  const [role, setRole] = useState<Role | ''>(params.get('role') === 'manager' ? 'manager' : params.get('role') === 'staff' ? 'staff' : '')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -54,7 +55,8 @@ export default function Auth() {
   }
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    run(() => (mode === 'signup' ? api.signUp(email.trim(), password, role) : api.signIn(email.trim(), password)))
+    if (mode === 'signup' && !role) { setError(t('请先选择你的身份')); return }
+    run(() => (mode === 'signup' ? api.signUp(email.trim(), password, role as Role) : api.signIn(email.trim(), password)))
   }
   const sendReset = (e: React.FormEvent) => {
     e.preventDefault()
@@ -94,8 +96,8 @@ export default function Auth() {
 
             <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
               {mode === 'signup' && (
-                <Field label={t('我的身份')}>
-                  <Segmented value={role} onChange={setRole} options={[{ value: 'manager', label: t('店长') }, { value: 'staff', label: t('员工') }]} />
+                <Field label={t('我的身份')} hint={role ? undefined : t('店长创建店铺和排班，员工用店铺码报班、查看班表')}>
+                  <Segmented value={role as Role} onChange={setRole} options={[{ value: 'manager', label: t('店长') }, { value: 'staff', label: t('员工') }]} />
                 </Field>
               )}
               <Field label={t('邮箱')}><Input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
@@ -106,7 +108,7 @@ export default function Auth() {
                 <button type="button" onClick={() => goMode('forgot')} className="-mt-2 self-start text-sm font-medium text-accent">{t('忘记密码？')}</button>
               )}
               {error && <p className="rounded-control bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">{error}</p>}
-              <Button type="submit" variant="primary" disabled={busy} className="h-11">{busy ? t('请稍候...') : mode === 'login' ? t('登录') : t('注册')}</Button>
+              <Button type="submit" variant="primary" disabled={busy || (mode === 'signup' && !role)} className="h-11">{busy ? t('请稍候...') : mode === 'login' ? t('登录') : t('注册')}</Button>
             </form>
 
             {api.mode === 'demo' && (

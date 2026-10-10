@@ -137,6 +137,8 @@ export const EN: Record<string, string> = {
   '下周可用时间还没填': "Next week's availability is not in yet",
   '去填写': "Fill it in",
   '员工可用时间': "Staff availability",
+  '请先选择你的身份': "Please choose who you are first",
+  '店长创建店铺和排班，员工用店铺码报班、查看班表': "Managers create the shop and schedule. Staff submit availability with the shop code and view their shifts.",
   '周': "Week",
   '双周': "2 weeks",
   '月': "Month",
