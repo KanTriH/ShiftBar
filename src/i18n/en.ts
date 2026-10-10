@@ -15,7 +15,6 @@ export const EN: Record<string, string> = {
   '已删除': "Deleted",
   '撤销': "Undo",
   '退出': "Sign out",
-  '进入': "Go",
   '登录': "Sign in",
   '注册': "Sign up",
   '登录 / 注册': "Sign in / Sign up",
@@ -63,10 +62,7 @@ export const EN: Record<string, string> = {
 
   // ---- 首页 ----
   '员工在线报班，店长在时间轴上拖拽排班，发布后员工一键导入日历。': "Staff submit availability online, managers drag shifts onto a timeline, and staff add the published schedule to their calendar in one click.",
-  '我是店长': "I'm a manager",
-  '我是员工，用店铺码报班': "I'm staff: submit availability with a shop code",
-  '向店长要店铺码或链接': "Ask your manager for the shop code or link",
-  '不用注册也能报班。注册后可以查看班表并导入日历。': "No account needed to submit availability. Sign up to see your shifts and export them to your calendar.",
+  '进入页面': "Open the app",
   '演示模式：还没连接 Supabase，数据只保存在这个浏览器。演示店铺码：': "Demo mode: Supabase is not connected, data stays in this browser. Demo shop code: ",
   '员工报的可用时间': "Staff availability",
   '店长排的班次': "Scheduled shifts",
