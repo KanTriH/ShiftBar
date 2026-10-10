@@ -18,7 +18,7 @@
   --danger: #d1372e;
   --warn: #b7791f;
   /* ShiftBar logo 配色，取自 public/brand/shiftbar-mark-light.svg */
-  --logo-cell: #d8deea;
+  --logo-cell: #7d8db5;
   --logo-bar: #1f3a72;
   --logo-dot: #0b0d10;
   --logo-ink: #1f3a72;
@@ -40,7 +40,7 @@
     --danger: #f0655c;
     --warn: #e0a84a;
     /* 取自 public/brand/shiftbar-mark-dark.svg */
-    --logo-cell: #24345a;
+    --logo-cell: #4c6296;
     --logo-bar: #f0e9d2;
     --logo-dot: #f0e9d2;
     --logo-ink: #f0e9d2;
@@ -109,9 +109,9 @@ input[type="time"]::-webkit-calendar-picker-indicator { opacity: .5; }
 @keyframes hs-drag {
   0%, 10% { transform: translate3d(0, 0, 0) scale(1); box-shadow: 0 0 0 0 transparent; }
   18% { transform: translate3d(0, -3px, 22px) scale(1.04); box-shadow: 0 14px 26px -10px rgb(0 0 0 / 0.5); }
-  40% { transform: translate3d(-45%, -3px, 22px) scale(1.04); box-shadow: 0 14px 26px -10px rgb(0 0 0 / 0.5); }
-  48%, 66% { transform: translate3d(-45%, 0, 0) scale(1); box-shadow: 0 0 0 0 transparent; }
-  74% { transform: translate3d(-45%, -3px, 22px) scale(1.04); box-shadow: 0 14px 26px -10px rgb(0 0 0 / 0.5); }
+  40% { transform: translate3d(-50%, -3px, 22px) scale(1.04); box-shadow: 0 14px 26px -10px rgb(0 0 0 / 0.5); }
+  48%, 66% { transform: translate3d(-50%, 0, 0) scale(1); box-shadow: 0 0 0 0 transparent; }
+  74% { transform: translate3d(-50%, -3px, 22px) scale(1.04); box-shadow: 0 14px 26px -10px rgb(0 0 0 / 0.5); }
   94% { transform: translate3d(0, -3px, 22px) scale(1.04); box-shadow: 0 14px 26px -10px rgb(0 0 0 / 0.5); }
   100% { transform: translate3d(0, 0, 0) scale(1); box-shadow: 0 0 0 0 transparent; }
 }

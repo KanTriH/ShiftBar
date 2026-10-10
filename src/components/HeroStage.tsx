@@ -1,13 +1,23 @@
 import { useEffect, useRef } from 'react'
 import { translate as t } from '../i18n/core'
 
-interface Row { id: number; name: string; avail: [number, number]; shift: { a: number; b: number; c: string; t: string }; drag?: boolean }
+interface Row { id: number; name: string; avail: [number, number]; shift: [number, number]; pos: keyof typeof POS; drag?: boolean }
+
+/** 一格 = 一小时，营业时间 09:00 - 21:00 共 12 格；班次和可用时间都落在整点上 */
+const H = 12
+/** 同一岗位同一颜色。饱和度压低，让按钮仍是页面上最醒目的元素 */
+const POS = {
+  cashier: '#b86a52',
+  bar: '#5a78b4',
+  prep: '#8a72ad',
+} as const
+const TICKS = [{ at: 0, label: '09:00' }, { at: 4, label: '13:00' }, { at: 8, label: '17:00' }, { at: 12, label: '21:00' }]
 
 const ROWS: Row[] = [
-  { id: 1, name: '小林', avail: [0, 0.62], shift: { a: 0, b: 0.5, c: '#c9532f', t: 'cashier' } },
-  { id: 2, name: 'Mei', avail: [0.2, 1], shift: { a: 0.5, b: 1, c: '#3a64c8', t: 'bar' }, drag: true },
-  { id: 3, name: '老周', avail: [0.15, 0.8], shift: { a: 0.15, b: 0.55, c: '#1f7a6d', t: 'prep' } },
-  { id: 4, name: 'Ravi', avail: [0, 0.4], shift: { a: 0, b: 0.38, c: '#8b4fb3', t: 'prep' } },
+  { id: 1, name: '小林', avail: [0, 8], shift: [0, 6], pos: 'cashier' },
+  { id: 2, name: 'Mei', avail: [3, 12], shift: [6, 12], pos: 'bar', drag: true },
+  { id: 3, name: '老周', avail: [2, 10], shift: [2, 7], pos: 'prep' },
+  { id: 4, name: 'Ravi', avail: [0, 5], shift: [0, 4], pos: 'prep' },
 ]
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
@@ -102,24 +112,38 @@ export function HeroStage() {
 
       <div ref={cardRef} className="relative [transform-style:preserve-3d]" style={{ willChange: 'transform' }}>
         <div className="relative rounded-panel border border-line bg-surface p-5 shadow-[0_30px_80px_-30px_color-mix(in_srgb,var(--accent)_55%,transparent)] [transform-style:preserve-3d]">
-          <div className="mb-3 ml-14 flex justify-between text-[11px] text-faint num"><span>09:00</span><span>13:00</span><span>17:00</span><span>21:00</span></div>
-          <div className="flex flex-col gap-2.5 [transform-style:preserve-3d]">
-            {ROWS.map((r, i) => (
-              <div key={r.id} className="flex items-center gap-3 [transform-style:preserve-3d]">
-                <span className="w-11 shrink-0 truncate text-xs font-medium text-mute">{r.name}</span>
-                <div className="relative h-10 flex-1 rounded-control bg-sunken [transform-style:preserve-3d]">
-                  <div className="hs-grow absolute inset-y-0 rounded-control bg-avail/25" style={{ left: `${r.avail[0] * 100}%`, width: `${(r.avail[1] - r.avail[0]) * 100}%`, ['--d' as string]: `${0.15 + i * 0.12}s` }} />
-                  <div className="hs-place absolute inset-y-1 [translate:0_0_16px]" style={{ left: `${r.shift.a * 100}%`, width: `${(r.shift.b - r.shift.a) * 100}%`, ['--d' as string]: `${0.7 + i * 0.14}s` }}>
-                    <div className={`flex h-full items-center rounded-[6px] px-2.5 text-[11px] font-medium text-white ${r.drag ? 'hs-drag' : ''}`} style={{ background: r.shift.c }}>{r.shift.t}</div>
-                  </div>
-                </div>
-              </div>
+          <div className="relative mb-3 ml-14 h-4 text-[11px] text-faint num">
+            {TICKS.map((k, i) => (
+              <span key={k.label} className="absolute top-0" style={{ left: `${(k.at / H) * 100}%`, transform: `translateX(${i === 0 ? '0' : i === TICKS.length - 1 ? '-100%' : '-50%'})` }}>{k.label}</span>
             ))}
           </div>
-          <p className="mt-4 flex items-center gap-2 pl-14 text-xs text-mute">
-            <span className="inline-block h-3 w-5 rounded-sm bg-avail/25" />{t('员工报的可用时间')}
-            <span className="ml-3 inline-block h-3 w-5 rounded-sm bg-accent" />{t('店长排的班次')}
-          </p>
+          <div className="relative [transform-style:preserve-3d]">
+            {/* 小时参考线：让每个班次的起止时间可以直接读出来 */}
+            <div className="pointer-events-none absolute inset-y-0 left-14 right-0" aria-hidden>
+              {Array.from({ length: H + 1 }, (_, i) => (
+                <span key={i} className={`absolute inset-y-0 w-px ${i % 4 === 0 ? 'bg-line' : 'bg-line/50'}`} style={{ left: `${(i / H) * 100}%` }} />
+              ))}
+            </div>
+            <div className="relative flex flex-col gap-2.5 [transform-style:preserve-3d]">
+              {ROWS.map((r, i) => (
+                <div key={r.id} className="flex items-center gap-3 [transform-style:preserve-3d]">
+                  <span className="w-11 shrink-0 truncate text-xs font-medium text-mute">{r.name}</span>
+                  <div className="relative h-10 flex-1 rounded-control bg-sunken/70 [transform-style:preserve-3d]">
+                    <div className="hs-grow absolute inset-y-0 rounded-control border border-avail/50 bg-avail/20" style={{ left: `${(r.avail[0] / H) * 100}%`, width: `${((r.avail[1] - r.avail[0]) / H) * 100}%`, ['--d' as string]: `${0.15 + i * 0.12}s` }} />
+                    <div className="hs-place absolute inset-y-1 [translate:0_0_16px]" style={{ left: `${(r.shift[0] / H) * 100}%`, width: `${((r.shift[1] - r.shift[0]) / H) * 100}%`, ['--d' as string]: `${0.7 + i * 0.14}s` }}>
+                      <div className={`flex h-full items-center rounded-[6px] px-2.5 text-[11px] font-medium text-white ${r.drag ? 'hs-drag' : ''}`} style={{ background: POS[r.pos] }}>{r.pos}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 pl-14 text-xs text-mute">
+            <span className="flex items-center gap-2"><span className="inline-block h-3 w-5 rounded-sm border border-avail/50 bg-avail/20" />{t('员工报的可用时间')}</span>
+            {(Object.keys(POS) as (keyof typeof POS)[]).map((k) => (
+              <span key={k} className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm" style={{ background: POS[k] }} />{k}</span>
+            ))}
+          </div>
           {/* 随倾斜移动的高光 */}
           <div className="pointer-events-none absolute inset-0 rounded-panel" style={{ background: 'radial-gradient(circle at var(--hx, 30%) var(--hy, 0%), color-mix(in srgb, white 16%, transparent), transparent 55%)' }} />
         </div>

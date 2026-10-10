@@ -62,11 +62,17 @@ export const EN: Record<string, string> = {
   '这个名字已经存在': "This name already exists",
 
   // ---- 首页 ----
-  '员工在线报班，店长在时间轴上拖拽排班，发布后员工一键导入日历。': "Staff submit availability online, managers drag shifts onto a timeline, and staff add the published schedule to their calendar in one click.",
+  '拖一拖，下周的班就排好了': "Next week's schedule, by drag and drop",
+  '员工自己填好能上班的时间，你在时间轴上一眼看清，拖一拖排好，发布后一键进手机日历。': "Staff fill in when they can work. You see everyone on one timeline, drag shifts into place, and publish to their phone calendars.",
+  '员工报班': "Staff submit",
+  '打开链接，填上能上班的时间，不用注册。': "Open a link and fill in when you can work. No account needed.",
+  '店长排班': "You schedule",
+  '所有人的可用时间摆在一条时间轴上，拖一拖就排好。': "Everyone's availability sits on one timeline. Drag shifts into place.",
+  '导入日历': "Add to calendar",
+  '发布后员工一键导入手机日历，不用再翻聊天记录找班表。': "Once published, staff add the schedule to their phone calendar in one tap.",
   '进入页面': "Open the app",
   '演示模式：还没连接 Supabase，数据只保存在这个浏览器。演示店铺码：': "Demo mode: Supabase is not connected, data stays in this browser. Demo shop code: ",
   '员工报的可用时间': "Staff availability",
-  '店长排的班次': "Scheduled shifts",
   '进入我的页面': "Open my page",
 
   // ---- 登录注册 ----
