@@ -103,7 +103,7 @@ export default function Landing() {
         </header>
 
         <div className="flex flex-1 flex-col items-center justify-center pb-16 pt-2 [--wm:clamp(4rem,16vw,16rem)]">
-          <h1 aria-label="ShiftBar" className="relative z-0 select-none whitespace-nowrap text-center font-black leading-[0.8]" style={{ fontSize: 'var(--wm)', letterSpacing: '-0.075em', fontFamily: '"Geist Variable", "Helvetica Neue", Arial, system-ui, sans-serif' }}>
+          <h1 aria-label="ShiftBar" className="relative z-0 select-none whitespace-nowrap text-center leading-[0.8]" style={{ fontSize: 'var(--wm)', letterSpacing: '-0.075em', fontFamily: '"Bricolage Grotesque Variable", "Geist Variable", system-ui, sans-serif', fontWeight: 800 }}>
             Shift<span style={{ color: 'var(--accent)' }}>B</span>ar
           </h1>
           <HeroStage className="relative z-10 w-[min(92vw,calc(var(--wm)*2.7))] min-w-[min(92vw,22rem)] [margin-top:calc(var(--wm)*-0.2)]" />

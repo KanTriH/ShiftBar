@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/bricolage-grotesque"; /* 首页大字标 */
 @import "@fontsource/fredoka/latin-600.css"; /* ShiftBar 字标 */
 
 :root {
