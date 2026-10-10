@@ -27,11 +27,16 @@ export default function Landing() {
       <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(60% 55% at 78% 38%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%), linear-gradient(115deg, transparent 40%, color-mix(in srgb, var(--accent) 7%, transparent) 55%, transparent 70%)' }} />
     <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-4 sm:px-6">
       {/* 首屏正文里已经有放大的品牌标识，页头不再重复放一个小的 */}
-      <header className="flex h-16 items-center justify-end gap-2">
+      <header className="flex h-16 items-center justify-end gap-1.5 sm:gap-2">
         <LangSwitch />
         {user
           ? <Link to="/go" className="rounded-control px-2.5 py-1.5 text-sm font-medium text-accent hover:bg-accent-soft">{t('进入我的页面')}</Link>
-          : <Link to="/auth" className="rounded-control px-2.5 py-1.5 text-sm font-medium text-mute hover:bg-sunken hover:text-ink">{t('登录')}</Link>}
+          : (
+            <>
+              <Link to="/auth" className="rounded-control px-2.5 py-1.5 text-sm font-medium text-mute hover:bg-sunken hover:text-ink">{t('登录')}</Link>
+              <Link to="/auth?role=manager&mode=signup" className="inline-flex h-9 items-center rounded-control bg-accent px-3.5 text-sm font-medium text-accent-ink transition active:scale-[0.98] hover:brightness-110">{t('开始使用')}</Link>
+            </>
+          )}
       </header>
 
       <main className="grid flex-1 items-center gap-12 pb-16 pt-4 lg:grid-cols-[1fr_1.05fr] lg:gap-20">

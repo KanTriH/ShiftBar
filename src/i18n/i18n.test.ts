@@ -17,7 +17,7 @@ describe('translate', () => {
 
   it('looks the text up in the dictionary in English mode', () => {
     setLangValue('en')
-    expect(translate('登录')).toBe('Sign in')
+    expect(translate('登录')).toBe('Log in')
     expect(translate('员工')).toBe('Staff')
   })
 
