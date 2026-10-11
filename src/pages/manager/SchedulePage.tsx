@@ -167,10 +167,10 @@ export default function SchedulePage() {
           const hol = holidayOn(d, shop.region)
           return (
             <button key={d} role="tab" aria-selected={sel} onClick={() => setDay(d)} title={hol ? holidayLabel(hol) : undefined}
-              className={cn('press relative flex flex-col items-center gap-0.5 rounded-2xl border px-1 py-3 text-center', sel ? 'border-accent bg-accent-soft text-accent' : 'border-line bg-surface hover:bg-sunken', !h && !sel && 'opacity-55')}>
+              className={cn('press relative flex flex-col items-center gap-0.5 rounded-2xl border px-0.5 py-3 text-center sm:px-1', sel ? 'border-accent bg-accent-soft text-accent' : 'border-line bg-surface hover:bg-sunken', !h && !sel && 'opacity-55')}>
               <span className="text-sm font-semibold">{dayLabel(weekdayIdx(d))}</span>
               <span className="num text-[11px] text-mute">{fmtMD(d)}</span>
-              <span className={cn('num text-[11px]', sel ? 'text-accent' : 'text-faint')}>{h ? (n ? t('{n} 个班', { n }) : t('未排')) : t('休息')}</span>
+              <span className={cn('num whitespace-nowrap text-[10px] sm:text-[11px]', sel ? 'text-accent' : 'text-faint')}>{h ? (n ? t('{n} 个班', { n }) : t('未排')) : t('休息')}</span>
               {hol && <Flag size={12} weight="fill" className="absolute right-1 top-1 text-warn" aria-label={t('法定假日')} />}
             </button>
           )
