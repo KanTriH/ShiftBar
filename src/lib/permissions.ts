@@ -1,11 +1,11 @@
 import type { MemberRole } from './types'
 
-/** Shift manager 的 5 个权限开关。店长拥有全部，不需要开关。数据库里的同名判断见迁移 0007 */
+/** 管理员的 5 个权限开关。店长拥有全部，不需要开关。数据库里的同名判断见迁移 0007 */
 export const PERMISSION_KEYS = ['schedule', 'publish', 'view_availability', 'manage_staff', 'export_pdf'] as const
 export type Permission = typeof PERMISSION_KEYS[number]
 export type Permissions = Partial<Record<Permission, boolean>>
 
-/** 把员工设为 shift manager 时的默认开关：能排班、看可用时间、导出；发布和管理员工要店长单独打开 */
+/** 把员工设为 管理员 时的默认开关：能排班、看可用时间、导出；发布和管理员工要店长单独打开 */
 export const DEFAULT_SHIFT_MANAGER_PERMS: Permissions = { schedule: true, view_availability: true, export_pdf: true }
 
 export interface Actor { isOwner: boolean; role: MemberRole; permissions: Permissions }

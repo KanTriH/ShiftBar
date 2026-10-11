@@ -118,7 +118,7 @@ export default function Auth() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => run(() => api.signIn(DEMO_ACCOUNTS.manager.email, DEMO_ACCOUNTS.manager.password))}>{t('以店长进入')}</Button>
                   <Button size="sm" onClick={() => run(() => api.signIn(DEMO_ACCOUNTS.staff.email, DEMO_ACCOUNTS.staff.password))}>{t('以员工「林晓」进入')}</Button>
-                  <Button size="sm" onClick={() => run(() => api.signIn(DEMO_ACCOUNTS.shiftManager.email, DEMO_ACCOUNTS.shiftManager.password))}>{t('以 Shift manager「高见」进入')}</Button>
+                  <Button size="sm" onClick={() => run(() => api.signIn(DEMO_ACCOUNTS.shiftManager.email, DEMO_ACCOUNTS.shiftManager.password))}>{t('以管理员「高见」进入')}</Button>
                 </div>
               </div>
             )}

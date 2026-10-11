@@ -11,7 +11,7 @@ export interface Location { id: string; shop_id: string; name: string; sort: num
 export interface DailyTask { shop_id: string; location_id: string; day: string; text: string }
 export interface Position { id: string; shop_id: string; name: string; color: string; sort: number }
 export type MemberStatus = 'trial' | 'regular'
-/** shift_manager: 店长授权的管理员，权限见 lib/permissions.ts。只有已注册（有账号）的员工才能是 shift manager */
+/** shift_manager: 店长授权的管理员，权限见 lib/permissions.ts。只有已注册（有账号）的员工才能是 管理员 */
 export type MemberRole = 'staff' | 'shift_manager'
 export interface Member { id: string; shop_id: string; name: string; status: MemberStatus; user_id: string | null; role: MemberRole; permissions: Partial<Record<'schedule' | 'publish' | 'view_availability' | 'manage_staff' | 'export_pdf', boolean>> }
 export interface Availability { id: string; shop_id: string; member_id: string; day: string; start_min: number; end_min: number; note: string; location_ids: string[] }

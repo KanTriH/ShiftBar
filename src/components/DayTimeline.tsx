@@ -35,7 +35,7 @@ interface Props {
   brushId: string | null
   /** 员工 id -> 会的岗位 id。没勾过任何岗位的员工没有这一项 */
   skills: Map<string, Set<string>>
-  /** 只读：没有排班权限的 shift manager 只能看，不能创建、移动、编辑 */
+  /** 只读：没有排班权限的 管理员 只能看，不能创建、移动、编辑 */
   readOnly?: boolean
   onCreate: (input: Omit<ShiftInput, 'location_id'>) => void
   onUpdate: (id: string, patch: Partial<ShiftInput>) => void

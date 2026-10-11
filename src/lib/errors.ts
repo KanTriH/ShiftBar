@@ -6,7 +6,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   name_required: '请填写你的名字',
   name_claimed: '这个名字已被注册员工使用，请登录后填写，或换一个名字',
   forbidden: '你没有这个操作的权限，请联系店长',
-  only_registered: '只有已经注册账号的员工才能设为 Shift manager',
+  only_registered: '只有已经注册账号的员工才能设为管理员',
   'row-level security': '你没有这个操作的权限，请联系店长',
   claim_disabled: '这家店铺没有开启店铺码绑定，请直接用店长发的报班链接报班',
   not_authenticated: '请先登录',

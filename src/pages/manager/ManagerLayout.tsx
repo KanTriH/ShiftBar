@@ -21,9 +21,9 @@ interface ManagerCtx {
   skills: Map<string, Set<string>>
   /** 勾选 / 取消一个员工会的岗位（先更新界面，失败再回滚） */
   setSkill: (memberId: string, positionId: string, on: boolean) => Promise<void>
-  /** 当前是店长，还是店长授权的 shift manager */
+  /** 当前是店长，还是店长授权的 管理员 */
   isOwner: boolean
-  /** 我的员工记录（只有 shift manager 有；店长是 null） */
+  /** 我的员工记录（只有 管理员 有；店长是 null） */
   me: Member | null
   /** 当前账号是否有某项权限（店长恒为 true） */
   can: (p: Permission) => boolean
@@ -63,7 +63,7 @@ export default function ManagerLayout() {
         if (owned) { setMe(null); setShop(owned); return }
         const ms = await api.getMembership()
         if (!alive) return
-        // 店长授权的 shift manager：用同一套管理界面，能做什么由权限开关决定
+        // 店长授权的 管理员：用同一套管理界面，能做什么由权限开关决定
         if (ms && ms.member.role === 'shift_manager') { setMe(ms.member); setShop(ms.shop); return }
         // 其实是已经绑定了店铺的普通员工（比如从 /manager 的地址进来、登录后被带回这里）：
         // 送去员工页，而不是让 TA 看到"创建你的店铺"
