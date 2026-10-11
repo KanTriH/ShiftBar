@@ -62,7 +62,7 @@ export function Segmented<T extends string>({ value, onChange, options, size = '
 /* ---------- Badge ---------- */
 export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'accent' | 'warn' | 'good' }) {
   const t = { neutral: 'bg-off-soft text-off-ink', accent: 'bg-accent-soft text-accent', warn: 'bg-warn-soft text-warn', good: 'bg-avail-soft text-avail' }[tone]
-  return <span className={cn('inline-flex h-6 items-center rounded-full px-2.5 text-[11px] font-semibold', t)}>{children}</span>
+  return <span className={cn('inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded-full px-2.5 text-[11px] font-semibold', t)}>{children}</span>
 }
 
 /* ---------- Modal ---------- */

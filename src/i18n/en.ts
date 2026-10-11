@@ -159,6 +159,7 @@ export const EN: Record<string, string> = {
   '只有 1 个人会，没有备份': "Only one person can do this, no backup",
   '先在「设置」里添加岗位标签，才能勾选员工会什么岗位。': "Add position tags in Settings first, then tick which positions each person can do.",
   '会这个岗位的人排在前面': "People who can do this position first",
+  '点一下员工那一行的空白处创建班次，再点班次调整时间或删除。': "Tap an empty spot on a person's row to add a shift, then tap the shift to adjust its time or delete it.",
   '周': "Week",
   '双周': "2 weeks",
   '月': "Month",
