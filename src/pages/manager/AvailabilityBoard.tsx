@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
+import { roleDot, roleStyle } from '../../lib/roles'
 import { Badge, Button, Empty, Segmented, Skeleton, cn, useToast } from '../../components/ui'
 import { holidayLabel, holidayOn } from '../../lib/holidays'
 import { translate as t } from '../../i18n/core'
@@ -10,11 +11,14 @@ import type { Availability } from '../../lib/types'
 import { addDays, dayLabel, fmtMD, fmtMin, fmtRangeShort, mergeIntervals, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
 
 export default function AvailabilityBoard() {
-  const { shop, locations, members } = useManager()
+  const { shop, locations, positions, members, skills } = useManager()
   const toast = useToast()
   const [week, setWeek] = useState(weekStart(todayISO(), shop.week_start))
   const [allRows, setRows] = useState<Availability[] | null>(null)
   const [loc, setLoc] = useState('all')
+  // 只看会某个岗位的人；没勾过任何岗位的员工默认不显示，可以单独打开
+  const [posFilter, setPosFilter] = useState<string>('all')
+  const [withUnset, setWithUnset] = useState(false)
   const locName = useMemo(() => new Map(locations.map((l) => [l.id, l.name])), [locations])
   // 选了某家门店时，只看能去这家门店的报班（没限定门店的人也算）
   const rows = useMemo(() => allRows && (loc === 'all' ? allRows : allRows.filter((r) => r.location_ids.length === 0 || r.location_ids.includes(loc))), [allRows, loc])
@@ -27,7 +31,16 @@ export default function AvailabilityBoard() {
     return () => { alive = false }
   }, [shop.id, week, toast])
 
-  const sorted = useMemo(() => [...members].sort((a, b) => a.name.localeCompare(b.name, 'zh')), [members])
+  const filtered = useMemo(() => {
+    if (posFilter === 'all') return members
+    return members.filter((m) => {
+      const sk = skills.get(m.id)
+      return sk ? sk.has(posFilter) : withUnset
+    })
+  }, [members, skills, posFilter, withUnset])
+  const unsetCount = useMemo(() => members.filter((m) => !skills.get(m.id)?.size).length, [members, skills])
+  const sorted = useMemo(() => [...filtered].sort((a, b) => a.name.localeCompare(b.name, 'zh')), [filtered])
+  const shownIds = useMemo(() => new Set(sorted.map((m) => m.id)), [sorted])
   const submittedIds = new Set((allRows ?? []).map((r) => r.member_id))
   const missing = sorted.filter((m) => !submittedIds.has(m.id))
 
@@ -38,7 +51,7 @@ export default function AvailabilityBoard() {
     const only = loc === 'all' ? [...new Set(list.flatMap((r) => r.location_ids))].map((id) => locName.get(id) ?? '').filter(Boolean) : []
     return { merged, only, note: list.find((r) => r.note)?.note, full: !!h && merged.length === 1 && merged[0][0] <= h.open && merged[0][1] >= h.close, closed: !h }
   }
-  const headcount = (day: string) => new Set((rows ?? []).filter((r) => r.day === day).map((r) => r.member_id)).size
+  const headcount = (day: string) => new Set((rows ?? []).filter((r) => r.day === day && shownIds.has(r.member_id)).map((r) => r.member_id)).size
 
   if (members.length === 0) return <Empty title={t('还没有员工报班')} hint={t('把店铺的报班链接发给员工，他们填完后会出现在这里。链接在「设置」页。')} />
 
@@ -59,7 +72,33 @@ export default function AvailabilityBoard() {
         )}
       </div>
 
-      {rows === null ? <Skeleton className="h-72" /> : (
+      {positions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-mute">{t('岗位')}</span>
+          <button onClick={() => setPosFilter('all')} aria-pressed={posFilter === 'all'}
+            className={cn('press h-9 rounded-full border px-3.5 text-[13px] font-semibold', posFilter === 'all' ? 'border-ink bg-ink text-bg' : 'border-line bg-surface text-mute hover:bg-sunken')}>{t('全部')}</button>
+          {positions.map((p) => {
+            const n = members.filter((m) => skills.get(m.id)?.has(p.id)).length
+            return (
+              <button key={p.id} onClick={() => setPosFilter(p.id)} aria-pressed={posFilter === p.id} title={t('只看会「{name}」的人', { name: p.name })}
+                className={cn('press flex h-9 items-center gap-2 rounded-full border px-3.5 text-[13px] font-semibold', posFilter !== p.id && 'border-line bg-surface text-mute hover:bg-sunken')}
+                style={posFilter === p.id ? roleStyle(p.color) : undefined}>
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: roleDot(p.color) }} />{p.name}<span className="num text-[11px] font-medium opacity-70">{n}</span>
+              </button>
+            )
+          })}
+          {posFilter !== 'all' && unsetCount > 0 && (
+            <label className="ml-1 flex cursor-pointer items-center gap-2 text-xs text-mute">
+              <input type="checkbox" checked={withUnset} onChange={(e) => setWithUnset(e.target.checked)} className="accent-[var(--accent)]" />
+              {t('同时显示还没设置岗位的 {n} 位员工', { n: unsetCount })}
+            </label>
+          )}
+        </div>
+      )}
+
+      {rows === null ? <Skeleton className="h-72" /> : sorted.length === 0 ? (
+        <Empty title={t('没有人会这个岗位')} hint={t('到「员工」页勾选每个人会的岗位，这里才会出现人。')} />
+      ) : (
         <div className="thin-scroll overflow-x-auto rounded-panel border border-line bg-surface">
           <table className="w-full min-w-[820px] border-collapse text-sm">
             <thead>

@@ -404,6 +404,9 @@ function ShiftEditor({ shift, member, positions, skillSet, hours, anchor, issue,
           ))}
           {positions.length === 0 && <span className="text-xs text-mute">{tr('还没有岗位标签，去「设置」里添加')}</span>}
         </div>
+        {shift.training && skillSet && skillSet.size > 0 && shift.position_id && !skillSet.has(shift.position_id) && (
+          <p className="mb-2 text-xs text-mute">{tr('{name}还不会这个岗位，所以这个班次标成了培训。他学会后，在「员工」页勾上即可。', { name: member?.name ?? '' })}</p>
+        )}
         <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-sunken px-3 py-2 text-sm">
           <span><span className="font-semibold">{tr('培训')}</span><span className="ml-2 text-xs text-mute">{tr('人手算 0.5，导出时单独归类')}</span></span>
           <input type="checkbox" checked={shift.training} onChange={(e) => onChange({ training: e.target.checked })} className="h-4 w-4 accent-[var(--accent)]" aria-label={tr('培训')} />

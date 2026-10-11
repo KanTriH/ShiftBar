@@ -192,6 +192,7 @@ export default function SchedulePage() {
             className={cn('press flex h-9 items-center gap-2 rounded-full border px-3.5 text-[13px] font-semibold', brush !== p.id && 'border-line bg-surface text-mute hover:bg-sunken')}
             style={brush === p.id ? roleStyle(p.color) : undefined}>
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: roleDot(p.color) }} />{p.name}
+            {skills.size > 0 && <span className="num text-[11px] font-medium opacity-70" title={t('会这个岗位的人数')}>{members.filter((m) => skills.get(m.id)?.has(p.id)).length}</span>}
           </button>
         ))}
         {positions.length === 0 && <Link to="/manager/settings" className="text-sm font-medium text-accent">{t('先添加岗位标签')}</Link>}
