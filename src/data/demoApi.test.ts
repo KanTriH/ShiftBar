@@ -378,3 +378,54 @@ describe('shop code switch', () => {
     await expect(api.claimMember(CODE, '周屿')).resolves.toBeUndefined()
   })
 })
+
+describe('member skills and training', () => {
+  it('the manager sees the whole matrix and can tick and untick', async () => {
+    await as(BOSS)
+    const before = await api.listMemberPositions(SHOP)
+    expect(before.some((r) => r.member_id === 'm2' && r.position_id === 'p-bar')).toBe(true)
+    await api.setMemberPosition(SHOP, 'm2', 'p-prep', true)
+    expect((await api.listMemberPositions(SHOP)).some((r) => r.member_id === 'm2' && r.position_id === 'p-prep')).toBe(true)
+    await api.setMemberPosition(SHOP, 'm2', 'p-prep', false)
+    expect((await api.listMemberPositions(SHOP)).some((r) => r.member_id === 'm2' && r.position_id === 'p-prep')).toBe(false)
+  })
+
+  it('ticking twice does not create duplicates', async () => {
+    await as(BOSS)
+    await api.setMemberPosition(SHOP, 'm5', 'p-bar', true)
+    await api.setMemberPosition(SHOP, 'm5', 'p-bar', true)
+    expect((await api.listMemberPositions(SHOP)).filter((r) => r.member_id === 'm5')).toHaveLength(1)
+  })
+
+  it('staff only see their own rows', async () => {
+    await as(LIN)
+    const rows = await api.listMemberPositions(SHOP)
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.every((r) => r.member_id === 'm1')).toBe(true)
+  })
+
+  it('deleting a position or a member removes the related skills', async () => {
+    await as(BOSS)
+    await api.deletePosition('p-bar')
+    expect((await api.listMemberPositions(SHOP)).some((r) => r.position_id === 'p-bar')).toBe(false)
+    await api.deleteMember('m1')
+    expect((await api.listMemberPositions(SHOP)).some((r) => r.member_id === 'm1')).toBe(false)
+  })
+
+  it('refuses a position from another shop', async () => {
+    await as(BOSS)
+    await rejects(api.setMemberPosition(SHOP, 'm1', 'p-does-not-exist', true), 'shop_not_found')
+  })
+
+  it('new shifts are not training unless marked, and the flag is stored and readable by staff', async () => {
+    await as(BOSS)
+    const plain = await api.createShift(SHOP, { member_id: 'm1', position_id: 'p-cash', location_id: 'l-main', day: WS, start_min: 540, end_min: 600 })
+    expect(plain.training).toBe(false)
+    const trainee = await api.createShift(SHOP, { member_id: 'm1', position_id: 'p-bar', location_id: 'l-main', day: WS, start_min: 700, end_min: 800, training: true })
+    expect(trainee.training).toBe(true)
+    await api.signOut()
+    await as(LIN)
+    const mine = await api.listMyShifts('m1', WS, addDays(WS, 6))
+    expect(mine.find((s) => s.id === trainee.id)?.training).toBe(true)
+  })
+})

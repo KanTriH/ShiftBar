@@ -5,6 +5,7 @@ import type { Availability, DayHours, Member, Position, Shift, ShiftInput } from
 import { translate as tr } from '../i18n/core'
 import { computeShiftIssues } from '../lib/scheduleRules'
 import { roleDot, roleStyle } from '../lib/roles'
+import { TRAINING_WEIGHT } from '../lib/training'
 import { clamp, covers, fmtHours, fmtMin, inputTime, isNextDay, mergeIntervals, parseEndAfter, parseStartIn, snap } from '../lib/time'
 
 const NAME_W = 168
@@ -30,13 +31,15 @@ interface Props {
   /** 本周提交过报班的员工 */
   submitted: Set<string>
   brushId: string | null
+  /** 员工 id -> 会的岗位 id。没勾过任何岗位的员工没有这一项 */
+  skills: Map<string, Set<string>>
   onCreate: (input: Omit<ShiftInput, 'location_id'>) => void
   onUpdate: (id: string, patch: Partial<ShiftInput>) => void
   onDelete: (shift: Shift) => void
 }
 
 export function DayTimeline(props: Props) {
-  const { day, hours, members, positions, shifts, otherShifts, locationNames, avail, submitted, brushId } = props
+  const { day, hours, members, positions, shifts, otherShifts, locationNames, avail, submitted, brushId, skills } = props
   const span = hours.close - hours.open
   const scrollRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -170,7 +173,7 @@ export function DayTimeline(props: Props) {
     const slots: { t: number; by: Map<string, number>; total: number }[] = []
     for (let t = hours.open; t < hours.close; t += 30) {
       const by = new Map<string, number>(); let total = 0
-      for (const s of view) if (s.start_min < t + 30 && s.end_min > t) { const k = s.position_id ?? '_'; by.set(k, (by.get(k) ?? 0) + 1); total++ }
+      for (const s of view) if (s.start_min < t + 30 && s.end_min > t) { const k = s.position_id ?? '_'; const w = s.training ? TRAINING_WEIGHT : 1; by.set(k, (by.get(k) ?? 0) + w); total += w }
       slots.push({ t, by, total })
     }
     return slots
@@ -196,7 +199,8 @@ export function DayTimeline(props: Props) {
             {members.map((m) => (
               <div key={m.id} className="flex flex-col justify-center border-b border-line px-3" style={{ height: ROW_H }}>
                 <div className="flex items-center gap-1.5">
-                  <span className="truncate text-sm font-medium">{m.name}</span>
+                  {brushId && skills.get(m.id)?.has(brushId) && <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: roleDot(posMap.get(brushId)?.color) }} title={tr('会这个岗位')} />}
+                  <span className={cn('truncate text-sm font-medium', brushId && (skills.get(m.id)?.size ?? 0) > 0 && !skills.get(m.id)!.has(brushId) && 'opacity-55')}>{m.name}</span>
                   {m.status === 'trial' && <Badge tone="warn">{tr('试工')}</Badge>}
                 </div>
                 <span className="num text-[11px] text-mute">
@@ -257,7 +261,7 @@ export function DayTimeline(props: Props) {
                     onPointerDown={(e) => onShiftDown(e, s, 'move')}
                     onContextMenu={(e) => { e.preventDefault(); props.onDelete(shifts.find((x) => x.id === s.id) ?? s) }}
                     title={bad ? tr('注意：{msg}', { msg: bad }) : `${fmtMin(s.start_min)} - ${fmtMin(s.end_min)}${s.note ? `\n${s.note}` : ''}`}
-                    className={cn('absolute flex cursor-grab select-none items-center overflow-hidden rounded-full border px-3.5', bad ? 'ring-2 ring-danger ring-offset-1 ring-offset-surface' : '', active && 'z-10 cursor-grabbing opacity-90 shadow-lg')}
+                    className={cn('absolute flex cursor-grab select-none items-center overflow-hidden rounded-full border px-3.5', s.training && 'border-dashed', bad ? 'ring-2 ring-danger ring-offset-1 ring-offset-surface' : '', active && 'z-10 cursor-grabbing opacity-90 shadow-lg')}
                     style={{ ...roleStyle(p?.color ?? NO_POS_COLOR), top: i * ROW_H + 6, height: ROW_H - 12, left: left(s.start_min), width: w, touchAction: 'none', transition: active ? 'none' : undefined }}
                   >
                     <span className="absolute inset-y-0 left-0 w-2 cursor-ew-resize" onPointerDown={(e) => onShiftDown(e, s, 'resize-l')} />
@@ -266,6 +270,7 @@ export function DayTimeline(props: Props) {
                       <span className="flex items-center gap-1.5 truncate text-[12px] font-semibold leading-tight">
                         {bad && <WarningCircle size={14} weight="fill" className="shrink-0" />}
                         <span className="truncate">{p?.name ?? tr('未指定岗位')}</span>
+                        {s.training && <span className="shrink-0 rounded-full bg-ink/10 px-1.5 py-px text-[10px] font-bold">{tr('培训')}</span>}
                         {w >= 130 && <span className="num font-medium opacity-80">{fmtMin(s.start_min)}–{fmtMin(s.end_min)}</span>}
                       </span>
                     )}
@@ -290,7 +295,7 @@ export function DayTimeline(props: Props) {
                 const t0 = hours.open + k * 60
                 const n = Math.max(...coverage.filter((c) => c.t >= t0 && c.t < t0 + 60).map((c) => c.total), 0)
                 return (
-                  <div key={t0} className={cn('num text-center text-xs', n === 0 ? 'text-faint' : n === 1 ? 'font-bold text-warn' : 'font-medium text-ink-2')} style={{ width: 60 * px }} title={tr('{time} 共 {n} 人', { time: fmtMin(t0), n })}>{n}</div>
+                  <div key={t0} className={cn('num text-center text-xs', n === 0 ? 'text-faint' : n <= 1 ? 'font-bold text-warn' : 'font-medium text-ink-2')} style={{ width: 60 * px }} title={tr('{time} 共 {n} 人', { time: fmtMin(t0), n })}>{n}</div>
                 )
               })}
             </div>
@@ -301,13 +306,14 @@ export function DayTimeline(props: Props) {
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-mute">
         <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm border border-avail/40 bg-avail/25" />{tr('员工可用时间')}</span>
         <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-full bg-sunken ring-2 ring-danger ring-offset-1 ring-offset-bg" />{tr('超出可用时间或时间重叠')}</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-full border border-dashed border-ink/60" />{tr('培训班次（人手算 0.5）')}</span>
         {otherShifts.length > 0 && <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm border border-line" style={{ background: 'repeating-linear-gradient(135deg, var(--sunken) 0 3px, var(--line) 3px 6px)' }} />{tr('在其他门店的班次')}</span>}
         <span className="hidden lg:inline">{tr('在员工那一行拖动来创建班次；拖动班次移动，拖两端调整时长；点击编辑，右键删除。')}</span>
       </div>
 
       {editShift && editing && (
         <ShiftEditor
-          key={editShift.id} shift={editShift} member={members.find((m) => m.id === editShift.member_id)} positions={positions}
+          key={editShift.id} shift={editShift} member={members.find((m) => m.id === editShift.member_id)} positions={positions} skillSet={skills.get(editShift.member_id)}
           hours={hours} anchor={editing.rect} issue={issues.get(editShift.id)}
           onClose={() => setEditing(null)}
           onChange={(patch) => props.onUpdate(editShift.id, patch)}
@@ -319,8 +325,8 @@ export function DayTimeline(props: Props) {
 }
 
 /* ---------- 班次编辑浮层 ---------- */
-function ShiftEditor({ shift, member, positions, hours, anchor, issue, onClose, onChange, onDelete }: {
-  shift: Shift; member?: Member; positions: Position[]; hours: DayHours; anchor: DOMRect; issue?: string
+function ShiftEditor({ shift, member, positions, skillSet, hours, anchor, issue, onClose, onChange, onDelete }: {
+  shift: Shift; member?: Member; positions: Position[]; skillSet?: Set<string>; hours: DayHours; anchor: DOMRect; issue?: string
   onClose: () => void; onChange: (p: Partial<ShiftInput>) => void; onDelete: () => void
 }) {
   const [note, setNote] = useState(shift.note)
@@ -348,15 +354,19 @@ function ShiftEditor({ shift, member, positions, hours, anchor, issue, onClose, 
         </div>
         {issue && <p className="mb-3 flex items-start gap-1.5 rounded-control bg-danger/10 px-2.5 py-2 text-xs text-danger"><WarningCircle size={14} weight="fill" className="mt-px shrink-0" />{issue}</p>}
         <div className="mb-3 flex flex-wrap gap-1.5">
-          {positions.map((p) => (
-            <button key={p.id} onClick={() => onChange({ position_id: p.id })}
-              className={cn('press flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold', shift.position_id !== p.id && 'border-line text-mute hover:bg-sunken')}
+          {[...positions].sort((a, b) => Number(!!skillSet?.has(b.id)) - Number(!!skillSet?.has(a.id))).map((p) => (
+            <button key={p.id} onClick={() => onChange({ position_id: p.id })} title={skillSet && skillSet.size > 0 && !skillSet.has(p.id) ? tr('不会这个岗位，排进去会标成培训') : undefined}
+              className={cn('press flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold', shift.position_id !== p.id && 'border-line text-mute hover:bg-sunken', shift.position_id !== p.id && skillSet && skillSet.size > 0 && !skillSet.has(p.id) && 'border-dashed opacity-60')}
               style={shift.position_id === p.id ? roleStyle(p.color) : undefined}>
               {shift.position_id !== p.id && <span className="h-2 w-2 rounded-full" style={{ background: roleDot(p.color) }} />}{p.name}
             </button>
           ))}
           {positions.length === 0 && <span className="text-xs text-mute">{tr('还没有岗位标签，去「设置」里添加')}</span>}
         </div>
+        <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-2xl bg-sunken px-3 py-2 text-sm">
+          <span><span className="font-semibold">{tr('培训')}</span><span className="ml-2 text-xs text-mute">{tr('人手算 0.5，导出时单独归类')}</span></span>
+          <input type="checkbox" checked={shift.training} onChange={(e) => onChange({ training: e.target.checked })} className="h-4 w-4 accent-[var(--accent)]" aria-label={tr('培训')} />
+        </label>
         <div className="mb-3 flex items-center gap-2">
           {isNextDay(shift.start_min) && <span className="text-[10px] font-medium text-warn">{tr('次日')}</span>}
           <input type="time" step={900} value={inputTime(shift.start_min)} onChange={(e) => setTime('start', e.target.value)} aria-label={tr('开始时间')} className="num h-9 flex-1 rounded-control border border-line bg-bg px-2 text-sm" />

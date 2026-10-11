@@ -9,11 +9,12 @@ import { errMsg } from '../../lib/errors'
 import { holidayLabel, holidayOn } from '../../lib/holidays'
 import { translate as t } from '../../i18n/core'
 import { roleDot, roleStyle } from '../../lib/roles'
+import { isTraining, trainingMinutes } from '../../lib/training'
 import type { Availability, DailyTask, Shift, ShiftInput } from '../../lib/types'
 import { addDays, dayLabel, fmtDay, fmtHours, fmtMD, fmtRangeShort, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
 
 export default function SchedulePage() {
-  const { shop, locations, positions, members } = useManager()
+  const { shop, locations, positions, members, skills } = useManager()
   const toast = useToast()
   const wsd = shop.week_start
   const [week, setWeek] = useState(weekStart(todayISO(), wsd))
@@ -63,15 +64,22 @@ export default function SchedulePage() {
   const reload = useCallback(async () => setShifts(await api.listShifts(shop.id, week, addDays(week, 6))), [shop.id, week])
 
   const create = async (input: ShiftInput) => {
-    const tmp: Shift = { id: 'tmp-' + Math.random().toString(36).slice(2), shop_id: shop.id, note: '', ...input }
+    // 把员工排进他不会的岗位 = 培训（一个岗位都没勾过的员工无法判断，不算）
+    const training = input.training ?? isTraining(skills.get(input.member_id), input.position_id)
+    const tmp: Shift = { id: 'tmp-' + Math.random().toString(36).slice(2), shop_id: shop.id, note: '', ...input, training }
     setShifts((s) => [...(s ?? []), tmp])
     try {
-      const real = await api.createShift(shop.id, input)
+      const real = await api.createShift(shop.id, { ...input, training })
       setShifts((s) => (s ?? []).map((x) => (x.id === tmp.id ? real : x)))
     } catch (e) { toast(errMsg(e)); reload() }
   }
   const update = async (id: string, patch: Partial<ShiftInput>) => {
     if (id.startsWith('tmp-')) return
+    // 换了人或换了岗位，重新判断是不是培训；店长直接改"培训"开关时以店长为准
+    if (patch.training === undefined && (patch.member_id !== undefined || patch.position_id !== undefined)) {
+      const cur = (shifts ?? []).find((x) => x.id === id)
+      if (cur) patch = { ...patch, training: isTraining(skills.get(patch.member_id ?? cur.member_id), patch.position_id !== undefined ? patch.position_id : cur.position_id) }
+    }
     setShifts((s) => (s ?? []).map((x) => (x.id === id ? { ...x, ...patch } : x)))
     try { await api.updateShift(id, patch) } catch (e) { toast(errMsg(e)); reload() }
   }
@@ -116,6 +124,7 @@ export default function SchedulePage() {
   const otherShifts = (shifts ?? []).filter((s) => s.day === day && s.location_id !== loc?.id)
   const dayAvail = avail.filter((a) => a.day === day && (a.location_ids.length === 0 || (loc && a.location_ids.includes(loc.id))))
   const weekMin = locShifts.reduce((n, s) => n + s.end_min - s.start_min, 0)
+  const weekTrainMin = trainingMinutes(locShifts)
 
   if (members.length === 0) {
     return <Empty title={t('还没有员工')} hint={t('员工通过分享链接报班后会自动出现在这里，你也可以先手动添加。')} action={<Link to="/manager/staff"><Button variant="primary" size="sm">{t('去添加员工')}</Button></Link>} />
@@ -132,7 +141,7 @@ export default function SchedulePage() {
           {week !== weekStart(todayISO(), wsd) && <Button size="sm" variant="ghost" onClick={() => changeWeek(weekStart(todayISO(), wsd))}>{t('回到本周')}</Button>}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="num hidden text-sm text-mute sm:inline">{locations.length > 1 ? t('{loc} {h} 小时', { loc: loc?.name ?? '', h: fmtHours(weekMin) }) : t('本周共 {h} 小时', { h: fmtHours(weekMin) })}</span>
+          <span className="num hidden text-sm text-mute sm:inline">{locations.length > 1 ? t('{loc} {h} 小时', { loc: loc?.name ?? '', h: fmtHours(weekMin) }) : t('本周共 {h} 小时', { h: fmtHours(weekMin) })}{weekTrainMin > 0 && <span className="ml-2">{t('其中培训 {h} 小时', { h: fmtHours(weekTrainMin) })}</span>}</span>
           {isPublished ? <Badge tone="good">{t('已发布')}</Badge> : <Badge tone="warn">{t('草稿')}</Badge>}
           <Link to={`/manager/print?week=${week}`}><Button>{t('导出 PDF')}</Button></Link>
           <Button variant={isPublished ? 'secondary' : 'primary'} onClick={togglePublish}>
@@ -196,7 +205,7 @@ export default function SchedulePage() {
         <>
           <DayTimeline
             day={day} hours={hours} members={sortedMembers} positions={positions}
-            shifts={dayShifts} otherShifts={otherShifts} locationNames={locationNames} avail={dayAvail} submitted={submitted} brushId={brush}
+            shifts={dayShifts} otherShifts={otherShifts} locationNames={locationNames} avail={dayAvail} submitted={submitted} brushId={brush} skills={skills}
             onCreate={(input) => create({ ...input, location_id: loc.id })} onUpdate={update} onDelete={remove}
           />
           <section className="rounded-[22px] border border-line bg-surface p-5">

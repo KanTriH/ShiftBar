@@ -13,10 +13,13 @@ export interface Position { id: string; shop_id: string; name: string; color: st
 export type MemberStatus = 'trial' | 'regular'
 export interface Member { id: string; shop_id: string; name: string; status: MemberStatus; user_id: string | null }
 export interface Availability { id: string; shop_id: string; member_id: string; day: string; start_min: number; end_min: number; note: string; location_ids: string[] }
-export interface Shift { id: string; shop_id: string; member_id: string; position_id: string | null; location_id: string; day: string; start_min: number; end_min: number; note: string }
+/** training: 培训班次（员工被排进了自己不会的岗位）。排班时自动标记，店长可以手动改 */
+export interface Shift { id: string; shop_id: string; member_id: string; position_id: string | null; location_id: string; day: string; start_min: number; end_min: number; note: string; training: boolean }
+/** 员工会的岗位（技能矩阵里的一个勾） */
+export interface MemberPosition { member_id: string; position_id: string }
 /** locations 为空 = 任意门店都可以 */
 export interface AvailEntry { day: string; start: number; end: number; note: string; locations: string[] }
-export interface ShiftInput { member_id: string; position_id: string | null; location_id: string; day: string; start_min: number; end_min: number; note?: string }
+export interface ShiftInput { member_id: string; position_id: string | null; location_id: string; day: string; start_min: number; end_min: number; note?: string; training?: boolean }
 export type Role = 'manager' | 'staff'
 export interface AppUser { id: string; email: string; role: Role | null }
 export interface PublicShop { name: string; hours: WeekHours; week_start: WeekStartDay; region: string; /** 是否允许员工注册并绑定店铺 */ claim_enabled: boolean; locations: { id: string; name: string }[]; members: { name: string; claimed: boolean }[] }

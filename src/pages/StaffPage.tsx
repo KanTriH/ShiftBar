@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, CaretLeft, CaretRight, DownloadSimple } from '@phosphor-icons/react'
 import { Badge, Button, Field, Input, Logo, Segmented, Skeleton, cn, useToast } from '../components/ui'
-import { roleStyle } from '../lib/roles'
+import { roleDot, roleStyle } from '../lib/roles'
+import { trainingMinutes } from '../lib/training'
 import { AvailabilityForm } from '../components/AvailabilityForm'
 import { DeleteAccountModal } from '../components/DeleteAccountModal'
 import { api } from '../data'
@@ -111,6 +112,7 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
   const [weekShifts, setWeekShifts] = useState<Shift[] | null>(null)
   const [statShifts, setStatShifts] = useState<Shift[]>([])
   const [upcoming, setUpcoming] = useState<Shift[]>([])
+  const [mySkills, setMySkills] = useState<string[]>([])
   const [nextWeekFilled, setNextWeekFilled] = useState<boolean | null>(null)
   const [now, setNow] = useState(() => new Date())
 
@@ -126,6 +128,7 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id) }, [])
   useEffect(() => { api.listPositions(shop.id).then(setPositions).catch(() => {}) }, [shop.id])
   useEffect(() => { api.listLocations(shop.id).then(setLocations).catch(() => {}) }, [shop.id])
+  useEffect(() => { api.listMemberPositions(shop.id).then((r) => setMySkills(r.filter((x) => x.member_id === member.id).map((x) => x.position_id))).catch(() => {}) }, [shop.id, member.id])
   useEffect(() => { api.listDailyTasks(shop.id, week, addDays(week, 6)).then(setTasks).catch(() => {}) }, [shop.id, week])
   useEffect(() => {
     let alive = true
@@ -155,6 +158,7 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
   const posOf = useMemo(() => new Map(positions.map((p) => [p.id, p])), [positions])
   const totalMin = statShifts.reduce((n, s) => n + (s.end_min - s.start_min), 0)
   const daysWorked = new Set(statShifts.map((s) => s.day)).size
+  const trainMin = trainingMinutes(statShifts)
   const locName = new Map(locations.map((l) => [l.id, l.name]))
 
   /* 下一个（或正在进行的）班 */
@@ -177,7 +181,7 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
     if (!statShifts.length) { toast(t('这个范围内还没有班次可导出')); return }
     const events = statShifts.map((s) => ({
       id: s.id, day: s.day, start: s.start_min, end: s.end_min,
-      title: `${shop.name}${s.position_id && posOf.get(s.position_id) ? ' · ' + posOf.get(s.position_id)!.name : ''}`, note: s.note,
+      title: `${shop.name}${s.position_id && posOf.get(s.position_id) ? ' · ' + posOf.get(s.position_id)!.name : ''}${s.training ? ` (${t('培训')})` : ''}`, note: s.note,
     }))
     downloadFile(`${t('班表')}-${from}_${to}.ics`, buildIcs(events, `${shop.name} ${t('班表')}`))
     toast(t('已下载，打开文件即可导入日历'))
@@ -193,6 +197,16 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
         <p className="text-sm text-mute">{shop.name}{placeLabel ? ` · ${placeLabel}` : ''}</p>
         <h1 className="mt-1 break-words font-display text-[clamp(3rem,6vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em]">Hi,<br />{member.name}</h1>
         {member.status === 'trial' && <div className="mt-3"><Badge tone="warn">{t('试工')}</Badge></div>}
+        {mySkills.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs text-mute">{t('我会的岗位')}</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {positions.filter((p) => mySkills.includes(p.id)).map((p) => (
+                <span key={p.id} style={roleStyle(p.color)} className="rounded-full border px-3 py-1 text-xs font-semibold"><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle" style={{ background: roleDot(p.color) }} />{p.name}</span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 下一个班 */}
@@ -204,7 +218,7 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
             <div className="mt-4 flex flex-wrap gap-2">
               {next.shifts.map((s) => {
                 const p = s.position_id ? posOf.get(s.position_id) : undefined
-                return <span key={s.id} style={roleStyle(p?.color)} className="num rounded-full border px-3 py-1 text-xs font-semibold">{p?.name ?? t('未指定岗位')} {fmtMin(s.start_min)}–{fmtMin(s.end_min)}</span>
+                return <span key={s.id} style={roleStyle(p?.color)} className={cn('num rounded-full border px-3 py-1 text-xs font-semibold', s.training && 'border-dashed')}>{p?.name ?? t('未指定岗位')} {fmtMin(s.start_min)}–{fmtMin(s.end_min)}{s.training && ` · ${t('培训')}`}</span>
               })}
             </div>
           </div>
@@ -230,6 +244,7 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
           <p className="num mt-4 text-xs text-mute">{fmtRangeShort(from, to)}</p>
           <p className="num mt-1 flex items-baseline gap-1.5 font-display text-6xl font-extrabold leading-none tracking-[-0.04em]">{fmtHours(totalMin)}<span className="font-sans text-base font-medium tracking-normal text-mute">{t('小时')}</span></p>
           <p className="mt-2 text-sm text-ink-2">{t('{n} 个班次，{d} 天上班', { n: statShifts.length, d: daysWorked })}</p>
+          {trainMin > 0 && <p className="num mt-1 text-sm text-mute">{t('其中培训 {h} 小时', { h: fmtHours(trainMin) })}</p>}
           <div className="mt-4 border-t border-line pt-4">
             <Button className="w-full" onClick={exportIcs}><DownloadSimple size={16} />{t('导出到日历')}</Button>
             <p className="mt-2.5 text-xs leading-relaxed text-mute">{t('下载 .ics 文件，Google、Apple、Outlook 日历都能导入。')}</p>
@@ -317,8 +332,8 @@ function WeekSchedule({ shop, week, shifts, posOf, locations, tasks, today }: {
                     const p = s.position_id ? posOf.get(s.position_id) : undefined
                     return (
                       <div key={s.id} title={`${fmtMin(s.start_min)} - ${fmtMin(s.end_min)}`} style={{ ...roleStyle(p?.color), left: pos(s.start_min), width: `${((s.end_min - s.start_min) / span) * 100}%` }}
-                        className="absolute inset-y-1 flex items-center overflow-hidden rounded-full border px-3 text-xs font-semibold">
-                        <span className="num truncate">{p ? `${p.name} ` : ''}{fmtMin(s.start_min)}–{fmtMin(s.end_min)}{multi ? ` @${locName.get(s.location_id) ?? ''}` : ''}</span>
+                        className={cn('absolute inset-y-1 flex items-center overflow-hidden rounded-full border px-3 text-xs font-semibold', s.training && 'border-dashed')}>
+                        <span className="num truncate">{p ? `${p.name} ` : ''}{fmtMin(s.start_min)}–{fmtMin(s.end_min)}{multi ? ` @${locName.get(s.location_id) ?? ''}` : ''}{s.training ? ` · ${t('培训')}` : ''}</span>
                       </div>
                     )
                   })}
