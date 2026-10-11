@@ -1,7 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Api } from './api'
-import type { AppUser, AvailEntry, Availability, DailyTask, Location, Member, Position, Shift, Shop } from '../lib/types'
+import type { AppUser, AvailEntry, Availability, DailyTask, Location, Member, MemberPosition, Position, Shift, Shop } from '../lib/types'
 import { POSITION_COLORS } from '../lib/types'
 
 const sb = supabase!
@@ -91,6 +91,14 @@ export function createSupabaseApi(): Api {
     async updateMember(id, patch) { unwrap(await sb.from('members').update(patch).eq('id', id)) },
     async deleteMember(id) { unwrap(await sb.from('members').delete().eq('id', id)) },
 
+    async listMemberPositions(shopId) {
+      return unwrap(await sb.from('member_positions').select('member_id, position_id').eq('shop_id', shopId)) as MemberPosition[]
+    },
+    async setMemberPosition(shopId, memberId, positionId, on) {
+      if (on) unwrap(await sb.from('member_positions').upsert({ shop_id: shopId, member_id: memberId, position_id: positionId }))
+      else unwrap(await sb.from('member_positions').delete().eq('member_id', memberId).eq('position_id', positionId))
+    },
+
     async listAvailability(shopId, from, to) {
       return unwrap(await sb.from('availability').select('*').eq('shop_id', shopId).gte('day', from).lte('day', to)) as Availability[]
     },
@@ -98,7 +106,7 @@ export function createSupabaseApi(): Api {
       return unwrap(await sb.from('shifts').select('*').eq('shop_id', shopId).gte('day', from).lte('day', to)) as Shift[]
     },
     async createShift(shopId, input) {
-      return unwrap(await sb.from('shifts').insert({ ...input, shop_id: shopId, note: input.note ?? '' }).select().single()) as Shift
+      return unwrap(await sb.from('shifts').insert({ ...input, shop_id: shopId, note: input.note ?? '', training: input.training ?? false }).select().single()) as Shift
     },
     async updateShift(id, patch) { unwrap(await sb.from('shifts').update(patch).eq('id', id)) },
     async deleteShift(id) { unwrap(await sb.from('shifts').delete().eq('id', id)) },

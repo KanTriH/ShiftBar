@@ -4,7 +4,7 @@ import type { Availability, Shift } from './types'
 
 let n = 0
 const shift = (member: string, start: number, end: number, extra: Partial<Shift> = {}): Shift => ({
-  id: `s${++n}`, shop_id: 'shop', member_id: member, position_id: null, location_id: 'main', day: '2026-10-05', start_min: start, end_min: end, note: '', ...extra,
+  id: `s${++n}`, shop_id: 'shop', member_id: member, position_id: null, location_id: 'main', day: '2026-10-05', start_min: start, end_min: end, note: '', training: false, ...extra,
 })
 const avail = (member: string, start: number, end: number): Availability => ({
   id: `a${++n}`, shop_id: 'shop', member_id: member, day: '2026-10-05', start_min: start, end_min: end, note: '', location_ids: [],

@@ -10,6 +10,7 @@ import { holidayLabel, holidayOn } from '../../lib/holidays'
 import { getLang, translate as tr } from '../../i18n/core'
 import type { DailyTask, Location, Member, PdfStyle, Position, Shift, Shop } from '../../lib/types'
 import { addDays, fmtDay, fmtHours, fmtMin, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
+import { totalMinutes, trainingMinutes } from '../../lib/training'
 
 const CN_DAY = ['一', '二', '三', '四', '五', '六', '日']
 const EN_DAY = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -102,14 +103,18 @@ export default function PrintPage() {
 function sortShifts(list: Shift[], ctx: Ctx) {
   return [...list].sort((a, b) => (ctx.posOrder.get(a.position_id ?? '') ?? 99) - (ctx.posOrder.get(b.position_id ?? '') ?? 99) || a.start_min - b.start_min)
 }
-const total = (list: Shift[]) => list.reduce((n, s) => n + s.end_min - s.start_min, 0)
+const total = totalMinutes
+const TRAIN_BG = '#ede9fe'
 
 function TableDay({ day, ctx, shifts, task }: { day: string; ctx: Ctx; shifts: Shift[]; task?: string }) {
   const d = new Date(day + 'T00:00:00')
   const closed = !ctx.shop.hours[weekdayIdx(day)]
   const sorted = sortShifts(shifts, ctx)
-  const regular = sorted.filter((s) => ctx.memberMap.get(s.member_id)?.status !== 'trial')
-  const trial = sorted.filter((s) => ctx.memberMap.get(s.member_id)?.status === 'trial')
+  // 分三组：正式班次、试工员工的班次、培训班次（排进了自己不会的岗位）
+  const training = sorted.filter((s) => s.training)
+  const regular = sorted.filter((s) => !s.training && ctx.memberMap.get(s.member_id)?.status !== 'trial')
+  const trial = sorted.filter((s) => !s.training && ctx.memberMap.get(s.member_id)?.status === 'trial')
+  const trainMin = trainingMinutes(shifts)
   const hol = holidayOn(day, ctx.shop.region)
 
   return (
@@ -117,7 +122,12 @@ function TableDay({ day, ctx, shifts, task }: { day: string; ctx: Ctx; shifts: S
       <h2 className="flex flex-wrap items-baseline gap-x-3 px-3 py-1.5 text-lg font-bold" style={{ background: '#e5e7eb' }}>
         <span>{weekdayName(weekdayIdx(day))} <span className="num">{d.getMonth() + 1}/{d.getDate()}</span></span>
         {hol && <span className="text-[13px] font-semibold" style={{ color: '#b45309' }}>{tr('法定假日')} {holidayLabel(hol)}</span>}
-        {shifts.length > 0 && <span className="num ml-auto text-[13px] font-normal" style={{ color: '#4b5563' }}>{tr('共 {h} 小时', { h: fmtHours(total(shifts)) })}</span>}
+        {shifts.length > 0 && (
+          <span className="num ml-auto text-[13px] font-normal" style={{ color: '#4b5563' }}>
+            {tr('共 {h} 小时', { h: fmtHours(total(shifts)) })}
+            {trainMin > 0 && <span className="ml-3">{tr('其中培训 {h} 小时', { h: fmtHours(trainMin) })}</span>}
+          </span>
+        )}
       </h2>
       {closed ? <p className="px-3 py-3 text-sm" style={{ color: MUTED }}>{tr('休息')}</p>
         : shifts.length === 0 ? <p className="px-3 py-3 text-sm" style={{ color: MUTED }}>{tr('暂无排班')}</p>
@@ -134,8 +144,14 @@ function TableDay({ day, ctx, shifts, task }: { day: string; ctx: Ctx; shifts: S
               <Rows list={regular} ctx={ctx} />
               {trial.length > 0 && (
                 <>
-                  <tr><td colSpan={5} className="px-2 py-1 text-center font-semibold" style={{ background: '#fde2d4', border: `1px solid ${LINE}` }}>{tr('Training 试工')}</td></tr>
+                  <tr><td colSpan={5} className="px-2 py-1 text-center font-semibold" style={{ background: '#fde2d4', border: `1px solid ${LINE}` }}>{tr('Trial 试工')}</td></tr>
                   <Rows list={trial} ctx={ctx} />
+                </>
+              )}
+              {training.length > 0 && (
+                <>
+                  <tr><td colSpan={5} className="px-2 py-1 text-center font-semibold" style={{ background: TRAIN_BG, border: `1px solid ${LINE}` }}>{tr('Training 培训')}</td></tr>
+                  <Rows list={training} ctx={ctx} markTrial />
                 </>
               )}
             </tbody>
@@ -150,7 +166,7 @@ function TableDay({ day, ctx, shifts, task }: { day: string; ctx: Ctx; shifts: S
   )
 }
 
-function Rows({ list, ctx }: { list: Shift[]; ctx: Ctx }) {
+function Rows({ list, ctx, markTrial = false }: { list: Shift[]; ctx: Ctx; markTrial?: boolean }) {
   const cell = { border: `1px solid ${LINE}` }
   return (
     <>
@@ -159,7 +175,10 @@ function Rows({ list, ctx }: { list: Shift[]; ctx: Ctx }) {
         return (
           <tr key={s.id}>
             <td className="num px-2 py-1 text-center" style={cell}>{i + 1}</td>
-            <td className="px-2 py-1 text-center font-medium" style={cell}>{ctx.memberMap.get(s.member_id)?.name ?? '-'}</td>
+            <td className="px-2 py-1 text-center font-medium" style={cell}>
+              {ctx.memberMap.get(s.member_id)?.name ?? '-'}
+              {markTrial && ctx.memberMap.get(s.member_id)?.status === 'trial' && <span className="ml-1 text-[11px] font-normal" style={{ color: MUTED }}>({tr('试工')})</span>}
+            </td>
             <td className="num px-2 py-1 text-center" style={cell}>{fmtMin(s.start_min)}</td>
             <td className="num px-2 py-1 text-center" style={cell}>{fmtMin(s.end_min)}</td>
             <td className="px-2 py-1 text-center" style={cell}>
@@ -201,7 +220,8 @@ function TimelineSheet({ days, ctx, shifts, tasks }: { days: string[]; ctx: Ctx;
       </thead>
       {days.map((day) => {
         const idx = weekdayIdx(day)
-        const list = [...shifts.filter((s) => s.day === day)].sort((a, b) => a.start_min - b.start_min || (ctx.posOrder.get(a.position_id ?? '') ?? 99) - (ctx.posOrder.get(b.position_id ?? '') ?? 99))
+        const list = [...shifts.filter((s) => s.day === day)].sort((a, b) => Number(a.training) - Number(b.training) || a.start_min - b.start_min || (ctx.posOrder.get(a.position_id ?? '') ?? 99) - (ctx.posOrder.get(b.position_id ?? '') ?? 99))
+        const trainMin = trainingMinutes(list)
         const closed = !ctx.shop.hours[idx]
         const task = tasks.find((t) => t.day === day)?.text
         const hol = holidayOn(day, ctx.shop.region)
@@ -224,12 +244,12 @@ function TimelineSheet({ days, ctx, shifts, tasks }: { days: string[]; ctx: Ctx;
                   {s && m ? (
                     <>
                       <td className="truncate px-2 font-semibold" style={cell}>{m.name}</td>
-                      <td className="px-1 text-center" style={{ ...cell, background: m.status === 'trial' ? '#dbeafe' : undefined }}>{m.status === 'trial' ? tr('试工') : tr('正式')}</td>
+                      <td className="px-1 text-center" style={{ ...cell, background: s.training ? TRAIN_BG : m.status === 'trial' ? '#dbeafe' : undefined }}>{s.training ? tr('培训') : m.status === 'trial' ? tr('试工') : tr('正式')}</td>
                       <td className="truncate px-2" style={cell} title={s.note}>{s.note}</td>
                       <td className="num px-1 text-center" style={cell}>{fmtMin(s.start_min)}-{fmtMin(s.end_min)}</td>
                       <td className="relative p-0" style={{ ...cell, backgroundImage: grid }}>
-                        <div className="absolute inset-y-[3px]" style={{ left: `${((s.start_min - lo) / span) * 100}%`, width: `${((s.end_min - s.start_min) / span) * 100}%`, background: ROLE_PRINT[roleOf(p?.color)].border }} title={p?.name} />
-                        {p && ((s.end_min - s.start_min) / span) > 0.1 && <span className="absolute inset-y-0 flex items-center px-1.5 text-[10px] font-semibold text-white" style={{ left: `${((s.start_min - lo) / span) * 100}%` }}>{p.name}</span>}
+                        <div className="absolute inset-y-[3px]" style={{ left: `${((s.start_min - lo) / span) * 100}%`, width: `${((s.end_min - s.start_min) / span) * 100}%`, background: s.training ? `repeating-linear-gradient(135deg, ${ROLE_PRINT[roleOf(p?.color)].border} 0 4px, #ffffff 4px 7px)` : ROLE_PRINT[roleOf(p?.color)].border, border: s.training ? `1px solid ${ROLE_PRINT[roleOf(p?.color)].border}` : undefined }} title={p?.name} />
+                        {p && ((s.end_min - s.start_min) / span) > 0.1 && <span className="absolute inset-y-0 flex items-center px-1.5 text-[10px] font-semibold" style={{ left: `${((s.start_min - lo) / span) * 100}%`, color: s.training ? INK : '#ffffff' }}><span style={s.training ? { background: '#ffffff', padding: '0 3px' } : undefined}>{p.name}</span></span>}
                       </td>
                     </>
                   ) : (
@@ -244,7 +264,7 @@ function TimelineSheet({ days, ctx, shifts, tasks }: { days: string[]; ctx: Ctx;
             <tr style={{ height: 20 }}>
               <td colSpan={3} className="px-2 text-right text-[11px]" style={{ ...cell, color: MUTED }}>{tr('合计 Total（小时）')}</td>
               <td className="num px-1 text-center font-semibold" style={{ ...cell, background: '#fff7ed' }}>{fmtHours(total(list))}</td>
-              <td style={cell} />
+              <td className="num px-2 text-[11px]" style={{ ...cell, background: trainMin > 0 ? TRAIN_BG : undefined }}>{trainMin > 0 ? tr('其中培训 {h} 小时', { h: fmtHours(trainMin) }) : ''}</td>
             </tr>
           </tbody>
         )

@@ -1,6 +1,6 @@
 import type {
   AppUser, AvailEntry, Availability, DailyTask, Location, Member, MemberStatus, PdfStyle, Position, PublicShop, Role,
-  Shift, ShiftInput, Shop, WeekHours, WeekStartDay,
+  MemberPosition, Shift, ShiftInput, Shop, WeekHours, WeekStartDay,
 } from '../lib/types'
 
 export interface ShopPatch { name?: string; hours?: WeekHours; week_start?: WeekStartDay; region?: string; pdf_style?: PdfStyle; code_enabled?: boolean }
@@ -35,6 +35,9 @@ export interface Api {
   createMember(shopId: string, name: string, status: MemberStatus): Promise<Member>
   updateMember(id: string, patch: { name?: string; status?: MemberStatus }): Promise<void>
   deleteMember(id: string): Promise<void>
+  /** 店长：整家店的技能矩阵；员工：只有自己的几行 */
+  listMemberPositions(shopId: string): Promise<MemberPosition[]>
+  setMemberPosition(shopId: string, memberId: string, positionId: string, on: boolean): Promise<void>
   listAvailability(shopId: string, from: string, to: string): Promise<Availability[]>
   listShifts(shopId: string, from: string, to: string): Promise<Shift[]>
   createShift(shopId: string, input: ShiftInput): Promise<Shift>

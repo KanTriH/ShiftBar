@@ -2,7 +2,7 @@
 // 行为与 supabaseApi 保持一致（包括访客按名字报班、员工认领、发布后才可见、多门店）。
 import type { Api } from './api'
 import type {
-  AppUser, Availability, DailyTask, Location, Member, Position, Role, Shift, Shop,
+  AppUser, Availability, DailyTask, Location, Member, MemberPosition, Position, Role, Shift, Shop,
 } from '../lib/types'
 import { DEFAULT_HOURS, POSITION_COLORS } from '../lib/types'
 import { addDays, todayISO, weekStart } from '../lib/time'
@@ -19,6 +19,7 @@ interface DB {
   shifts: Shift[]
   tasks: DailyTask[]
   publications: { shop_id: string; week_start: string }[]
+  memberPositions: (MemberPosition & { shop_id: string })[]
 }
 
 const KEY = 'shift-scheduler-demo-v2'
@@ -83,6 +84,8 @@ function seed(): DB {
   ].map(([m, p, d, a, b, l]) => ({
     id: uid(), shop_id: 's1', member_id: m as string, position_id: p as string, location_id: (l as string | undefined) ?? 'l-main',
     day: addDays(ws, d as number), start_min: a as number, end_min: b as number, note: '',
+    // 陈嘉禾只会 prep，被排进 bar：这是一个培训班次
+    training: m === 'm3' && p === 'p-bar',
   }))
   const tasks: DailyTask[] = [
     { shop_id: 's1', location_id: 'l-main', day: addDays(ws, 0), text: 'Floor mat 地毯（用吸尘器）\nSyrup pump 糖浆泵头\nWindows 窗户' },
@@ -91,13 +94,22 @@ function seed(): DB {
   return {
     users: [owner, lin], session: null, shops: [shop], locations, positions: pos, members, availability, shifts, tasks,
     publications: [{ shop_id: 's1', week_start: ws }],
+    // 技能矩阵：林晓会 cashier 和 prep，周屿会 bar，陈嘉禾只会 prep，许安然还没设置
+    memberPositions: ([['m1', 'p-cash'], ['m1', 'p-prep'], ['m2', 'p-bar'], ['m3', 'p-prep'], ['m4', 'p-prep'], ['m6', 'p-bar'], ['m6', 'p-cash']] as const)
+      .map(([member_id, position_id]) => ({ member_id, position_id, shop_id: 's1' })),
   }
 }
 
 function load(): DB {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw) as DB
+    if (raw) {
+      const old = JSON.parse(raw) as DB
+      // 旧版本的演示数据没有技能矩阵和培训标记
+      old.memberPositions ??= []
+      old.shifts.forEach((s) => { s.training ??= false })
+      return old
+    }
   } catch { /* ignore */ }
   const db = seed()
   save(db)
@@ -199,6 +211,7 @@ export function createDemoApi(): Api {
     async updatePosition(id, patch) { Object.assign(db.positions.find((p) => p.id === id)!, patch); commit() },
     async deletePosition(id) {
       db.positions = db.positions.filter((p) => p.id !== id)
+      db.memberPositions = db.memberPositions.filter((x) => x.position_id !== id)
       db.shifts.forEach((s) => { if (s.position_id === id) s.position_id = null })
       commit()
     },
@@ -212,15 +225,32 @@ export function createDemoApi(): Api {
     async updateMember(id, patch) { Object.assign(db.members.find((m) => m.id === id)!, patch); commit() },
     async deleteMember(id) {
       db.members = db.members.filter((m) => m.id !== id)
+      db.memberPositions = db.memberPositions.filter((x) => x.member_id !== id)
       db.availability = db.availability.filter((a) => a.member_id !== id)
       db.shifts = db.shifts.filter((s) => s.member_id !== id)
+      commit()
+    },
+
+    async listMemberPositions(shopId) {
+      await delay()
+      const u = me()
+      const owns = u && db.shops.some((s) => s.id === shopId && s.owner_id === u.id)
+      const mine = new Set(db.members.filter((m) => u && m.user_id === u.id).map((m) => m.id))
+      return db.memberPositions.filter((x) => x.shop_id === shopId && (owns || mine.has(x.member_id))).map(({ member_id, position_id }) => ({ member_id, position_id }))
+    },
+    async setMemberPosition(shopId, memberId, positionId, on) {
+      const m = db.members.find((x) => x.id === memberId)
+      const p = db.positions.find((x) => x.id === positionId)
+      if (!m || !p || m.shop_id !== shopId || p.shop_id !== shopId) throw new Error('shop_not_found')
+      db.memberPositions = db.memberPositions.filter((x) => !(x.member_id === memberId && x.position_id === positionId))
+      if (on) db.memberPositions.push({ member_id: memberId, position_id: positionId, shop_id: shopId })
       commit()
     },
 
     async listAvailability(shopId, from, to) { await delay(); return db.availability.filter((a) => a.shop_id === shopId && a.day >= from && a.day <= to) },
     async listShifts(shopId, from, to) { await delay(); return db.shifts.filter((s) => s.shop_id === shopId && s.day >= from && s.day <= to) },
     async createShift(shopId, input) {
-      const s: Shift = { id: uid(), shop_id: shopId, note: '', ...input, location_id: input.location_id ?? firstLocation(db, shopId).id }
+      const s: Shift = { id: uid(), shop_id: shopId, note: '', training: false, ...input, location_id: input.location_id ?? firstLocation(db, shopId).id }
       db.shifts.push(s); commit(); return s
     },
     async updateShift(id, patch) { Object.assign(db.shifts.find((s) => s.id === id)!, patch); commit() },

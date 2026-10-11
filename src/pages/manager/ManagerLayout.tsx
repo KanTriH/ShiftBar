@@ -1,10 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Button, Field, Input, Logo, Skeleton, cn, useToast } from '../../components/ui'
 import { api } from '../../data'
 import { useAuth } from '../../auth/AuthContext'
 import { errMsg } from '../../lib/errors'
-import type { Location, Member, Position, Shop } from '../../lib/types'
+import type { Location, Member, MemberPosition, Position, Shop } from '../../lib/types'
 import { isStaffInWrongPlace } from '../../lib/landing'
 import { POSITION_PRESETS } from '../../lib/types'
 import { LangSwitch } from '../../i18n'
@@ -16,6 +16,10 @@ interface ManagerCtx {
   locations: Location[]
   positions: Position[]
   members: Member[]
+  /** 员工 id -> 会的岗位 id（技能矩阵）。没勾过任何岗位的员工没有这一项 */
+  skills: Map<string, Set<string>>
+  /** 勾选 / 取消一个员工会的岗位（先更新界面，失败再回滚） */
+  setSkill: (memberId: string, positionId: string, on: boolean) => Promise<void>
   reloadLocations: () => Promise<void>
   reloadPositions: () => Promise<void>
   reloadMembers: () => Promise<void>
@@ -37,6 +41,7 @@ export default function ManagerLayout() {
   const [locations, setLocations] = useState<Location[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [members, setMembers] = useState<Member[]>([])
+  const [memberPositions, setMemberPositions] = useState<MemberPosition[]>([])
 
   useEffect(() => {
     if (loading) return
@@ -61,13 +66,31 @@ export default function ManagerLayout() {
   const reloadLocations = useCallback(async () => { if (shop) setLocations(await api.listLocations(shop.id)) }, [shop])
   const reloadPositions = useCallback(async () => { if (shop) setPositions(await api.listPositions(shop.id)) }, [shop])
   const reloadMembers = useCallback(async () => { if (shop) setMembers(await api.listMembers(shop.id)) }, [shop])
-  useEffect(() => { reloadLocations(); reloadPositions(); reloadMembers() }, [reloadLocations, reloadPositions, reloadMembers])
+  const reloadSkills = useCallback(async () => { if (shop) setMemberPositions(await api.listMemberPositions(shop.id)) }, [shop])
+  useEffect(() => { reloadLocations(); reloadPositions(); reloadMembers(); reloadSkills().catch(() => {}) }, [reloadLocations, reloadPositions, reloadMembers, reloadSkills])
+
+  const skills = useMemo(() => {
+    const m = new Map<string, Set<string>>()
+    for (const r of memberPositions) {
+      if (!m.has(r.member_id)) m.set(r.member_id, new Set())
+      m.get(r.member_id)!.add(r.position_id)
+    }
+    return m
+  }, [memberPositions])
+  const setSkill = useCallback(async (memberId: string, positionId: string, on: boolean) => {
+    if (!shop) return
+    setMemberPositions((cur) => {
+      const rest = cur.filter((r) => !(r.member_id === memberId && r.position_id === positionId))
+      return on ? [...rest, { member_id: memberId, position_id: positionId }] : rest
+    })
+    try { await api.setMemberPosition(shop.id, memberId, positionId, on) } catch (e) { await reloadSkills().catch(() => {}); throw e }
+  }, [shop, reloadSkills])
 
   if (shop === undefined) return <div className="mx-auto max-w-6xl p-6"><Skeleton className="h-10 w-56" /><Skeleton className="mt-6 h-80" /></div>
   if (shop === null) return <Onboarding onCreated={setShop} />
 
   return (
-    <Ctx.Provider value={{ shop, setShop, locations, positions, members, reloadLocations, reloadPositions, reloadMembers }}>
+    <Ctx.Provider value={{ shop, setShop, locations, positions, members, skills, setSkill, reloadLocations, reloadPositions, reloadMembers }}>
       <div className="min-h-[100dvh]">
         <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur print:hidden">
           <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-3 px-4 sm:px-6">
