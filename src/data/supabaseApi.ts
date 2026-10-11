@@ -6,6 +6,9 @@ import { POSITION_COLORS } from '../lib/types'
 
 const sb = supabase!
 
+/** PostgREST：shifts 表里没有 training 列（迁移 0006 还没运行） */
+const missingTrainingColumn = (msg: string) => /training/i.test(msg) && /column|schema cache/i.test(msg)
+
 function unwrap<T>(r: { data: T | null; error: { message: string } | null }): T {
   if (r.error) throw new Error(r.error.message)
   return r.data as T
@@ -106,9 +109,25 @@ export function createSupabaseApi(): Api {
       return unwrap(await sb.from('shifts').select('*').eq('shop_id', shopId).gte('day', from).lte('day', to)) as Shift[]
     },
     async createShift(shopId, input) {
-      return unwrap(await sb.from('shifts').insert({ ...input, shop_id: shopId, note: input.note ?? '', training: input.training ?? false }).select().single()) as Shift
+      const row = { ...input, shop_id: shopId, note: input.note ?? '', training: input.training ?? false }
+      let r = await sb.from('shifts').insert(row).select().single()
+      // 数据库还没运行迁移 0006（shifts.training 不存在）时，退回到不带培训标记的写法，排班照常可用
+      if (r.error && missingTrainingColumn(r.error.message)) {
+        const { training: _t, ...rest } = row
+        r = await sb.from('shifts').insert(rest).select().single()
+        return { ...(unwrap(r) as Shift), training: false }
+      }
+      return unwrap(r) as Shift
     },
-    async updateShift(id, patch) { unwrap(await sb.from('shifts').update(patch).eq('id', id)) },
+    async updateShift(id, patch) {
+      const first = await sb.from('shifts').update(patch).eq('id', id)
+      if (first.error && 'training' in patch && missingTrainingColumn(first.error.message)) {
+        const { training: _t, ...rest } = patch
+        if (Object.keys(rest).length) unwrap(await sb.from('shifts').update(rest).eq('id', id))
+        return
+      }
+      unwrap(first)
+    },
     async deleteShift(id) { unwrap(await sb.from('shifts').delete().eq('id', id)) },
     async listDailyTasks(shopId, from, to) {
       return unwrap(await sb.from('daily_tasks').select('*').eq('shop_id', shopId).gte('day', from).lte('day', to)) as DailyTask[]

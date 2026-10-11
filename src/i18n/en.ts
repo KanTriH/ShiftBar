@@ -166,6 +166,8 @@ export const EN: Record<string, string> = {
   '到「员工」页勾选每个人会的岗位，这里才会出现人。': "Tick each person's positions on the Staff page and they will show up here.",
   '会这个岗位的人数': "People who can do this position",
   '{name}还不会这个岗位，所以这个班次标成了培训。他学会后，在「员工」页勾上即可。': "{name} cannot do this position yet, so the shift is marked as training. Tick it on the Staff page once they have learned it.",
+  '会这个岗位的人排在前面': "People who can do this position first",
+  '点一下员工那一行的空白处创建班次，再点班次调整时间或删除。': "Tap an empty spot on a person's row to add a shift, then tap the shift to adjust its time or delete it.",
   '周': "Week",
   '双周': "2 weeks",
   '月': "Month",
