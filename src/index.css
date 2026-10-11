@@ -127,6 +127,9 @@ input[type="time"]::-webkit-calendar-picker-indicator { opacity: .5; }
   .skeleton, .pop { animation: none; }
   .press { transition: none; }
 }
+/* 排班时间轴：换顺序时每一行滑到新位置，错开一点点，看起来是一串而不是一块 */
+.row-slide { transition: transform 460ms cubic-bezier(0.16, 1, 0.3, 1); transition-delay: var(--rd, 0ms); will-change: transform; }
+@media (prefers-reduced-motion: reduce) { .row-slide { transition: none; } }
 .thin-scroll { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 
 @page { size: A4; margin: 12mm; }

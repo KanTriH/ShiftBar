@@ -93,11 +93,11 @@ export default function ManagerLayout() {
     <Ctx.Provider value={{ shop, setShop, locations, positions, members, skills, setSkill, reloadLocations, reloadPositions, reloadMembers }}>
       <div className="min-h-[100dvh]">
         <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur print:hidden">
-          <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-3 px-4 sm:px-6">
+          <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 sm:h-[68px] sm:flex-nowrap sm:px-6 sm:py-0">
             <Link to="/"><Logo className="text-xl" /></Link>
-            <span className="hidden text-faint sm:block">/</span>
-            <span className="hidden max-w-[10rem] truncate text-sm font-semibold sm:block">{shop.name}</span>
-            <nav className="thin-scroll ml-1 flex min-w-0 flex-1 gap-1 overflow-x-auto" aria-label={t('主导航')}>
+            <span className="text-faint">/</span>
+            <span className="min-w-0 max-w-[10rem] truncate text-sm font-semibold max-sm:flex-1">{shop.name}</span>
+            <nav className="thin-scroll order-last -mx-1 flex basis-full gap-1 overflow-x-auto pb-1 sm:order-none sm:mx-0 sm:ml-1 sm:min-w-0 sm:flex-1 sm:basis-auto sm:pb-0" aria-label={t('主导航')}>
               {TABS.map(({ to, end, label }) => (
                 <NavLink key={to} to={to} end={end}
                   className={({ isActive }) => cn('press flex h-10 shrink-0 items-center rounded-full px-4 text-sm font-semibold', isActive ? 'bg-ink text-bg' : 'text-mute hover:bg-sunken hover:text-ink')}>

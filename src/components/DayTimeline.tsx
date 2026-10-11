@@ -9,6 +9,8 @@ import { TRAINING_WEIGHT } from '../lib/training'
 import { clamp, covers, fmtHours, fmtMin, inputTime, isNextDay, mergeIntervals, parseEndAfter, parseStartIn, snap } from '../lib/time'
 
 const NAME_W = 168
+const NAME_W_NARROW = 120 // 手机宽度下名字列窄一些，把空间让给时间轴
+const TAP_LEN = 240 // 手机上点一下空白处创建的班次时长（分钟）
 const ROW_H = 60
 const COVER_H = 44
 const MIN_LEN = 15
@@ -39,7 +41,7 @@ interface Props {
 }
 
 export function DayTimeline(props: Props) {
-  const { day, hours, members, positions, shifts, otherShifts, locationNames, avail, submitted, brushId, skills } = props
+  const { day, hours, members: rawMembers, positions, shifts, otherShifts, locationNames, avail, submitted, brushId, skills } = props
   const span = hours.close - hours.open
   const scrollRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -57,12 +59,29 @@ export function DayTimeline(props: Props) {
   }, [])
 
   // 每分钟占的像素：铺满容器，但不小于 1，保证 15 分钟粒度可操作
-  const px = clamp((boxW - NAME_W - 2) / span, 1, 2.4)
+  const nameW = boxW < 560 ? NAME_W_NARROW : NAME_W
+  const px = clamp((boxW - nameW - 2) / span, 1, 2.4)
   const trackW = span * px
 
+  // 选了岗位画笔时，会这个岗位的人排到最前面（可以在图例旁关掉，选择记在浏览器里）
+  const [skillFirst, setSkillFirst] = useState(() => { try { return localStorage.getItem('shift-skill-first') !== '0' } catch { return true } })
+  const toggleSkillFirst = (v: boolean) => { setSkillFirst(v); try { localStorage.setItem('shift-skill-first', v ? '1' : '0') } catch { /* ignore */ } }
+  const { members, qualified } = useMemo(() => {
+    if (!skillFirst || !brushId) return { members: rawMembers, qualified: 0 }
+    const yes = rawMembers.filter((m) => skills.get(m.id)?.has(brushId))
+    const no = rawMembers.filter((m) => !skills.get(m.id)?.has(brushId))
+    return { members: [...yes, ...no], qualified: yes.length }
+  }, [rawMembers, skills, brushId, skillFirst])
+  const anySkills = skills.size > 0
+  /** 行位置用 transform 而不是 top：换顺序时每一行平滑滑到新位置 */
+  const rowT = (i: number, extra = 0, still = false): React.CSSProperties => ({
+    top: 0, transform: `translateY(${i * ROW_H + extra}px)`, ['--rd' as string]: `${Math.min(i, 10) * 16}ms`, ...(still ? { transition: 'none' } : null),
+  })
+  const divider = qualified > 0 && qualified < members.length
+
   // 事件处理里读取最新值，避免闭包过期
-  const live = useRef({ props, px, span })
-  live.current = { props, px, span }
+  const live = useRef({ props, px, span, members })
+  live.current = { props, px, span, members }
 
   const posMap = useMemo(() => new Map(positions.map((p) => [p.id, p])), [positions])
   const rowOf = useMemo(() => new Map(members.map((m, i) => [m.id, i])), [members])
@@ -72,15 +91,26 @@ export function DayTimeline(props: Props) {
     const r = trackRef.current!.getBoundingClientRect()
     const { props: p, px: k } = live.current
     const raw = p.hours.open + (cx - r.left) / k
-    const row = clamp(Math.floor((cy - r.top) / ROW_H), 0, Math.max(0, p.members.length - 1))
+    const row = clamp(Math.floor((cy - r.top) / ROW_H), 0, Math.max(0, live.current.members.length - 1))
     return { raw, row }
   }
   const startDrag = (d: Drag) => { dragRef.current = d; setDrag(d) }
 
+  // 触屏上横向划动是在滚动时间轴，所以不能用"拖动创建"：点一下空白处，按当前岗位创建一个班次，再点它调整
+  const tapRef = useRef<{ x: number; y: number; t: number; raw: number; memberId: string } | null>(null)
+  const onLaneUp = (e: React.PointerEvent) => {
+    const tap = tapRef.current; tapRef.current = null
+    if (!tap || e.pointerType !== 'touch') return
+    if (Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10 || performance.now() - tap.t > 500) return
+    const start = clamp(snap(tap.raw), hours.open, hours.close - 30)
+    const end = Math.min(start + TAP_LEN, hours.close)
+    props.onCreate({ member_id: tap.memberId, position_id: brushId, day, start_min: start, end_min: end })
+  }
   const onLaneDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return
     const { raw, row } = locate(e.clientX, e.clientY)
     const m = members[row]; if (!m) return
+    if (e.pointerType === 'touch') { setEditing(null); tapRef.current = { x: e.clientX, y: e.clientY, t: performance.now(), raw, memberId: m.id }; return }
     const a = clamp(snap(raw), hours.open, hours.close)
     setEditing(null)
     startDrag({ kind: 'create', memberId: m.id, anchor: a, start: a, end: a })
@@ -111,7 +141,7 @@ export function DayTimeline(props: Props) {
         if (d.kind === 'move') {
           const dur = d.orig.end - d.orig.start
           const s = clamp(snap(raw - d.grab), p.hours.open, p.hours.close - dur)
-          next = { ...d, moved, start: s, end: s + dur, memberId: p.members[row]?.id ?? d.memberId }
+          next = { ...d, moved, start: s, end: s + dur, memberId: live.current.members[row]?.id ?? d.memberId }
         } else if (d.kind === 'resize-l') {
           next = { ...d, moved, start: clamp(snap(raw), p.hours.open, d.end - MIN_LEN) }
         } else {
@@ -192,12 +222,13 @@ export function DayTimeline(props: Props) {
   return (
     <div className="relative">
       <div ref={scrollRef} className="thin-scroll overflow-x-auto rounded-[22px] border border-line bg-surface">
-        <div className="flex" style={{ width: NAME_W + trackW + 2, minWidth: '100%' }}>
+        <div className="flex" style={{ width: nameW + trackW + 2, minWidth: '100%' }}>
           {/* 左侧姓名列 */}
-          <div className="sticky left-0 z-20 shrink-0 border-r border-line bg-surface" style={{ width: NAME_W }}>
+          <div className="sticky left-0 z-20 shrink-0 border-r border-line bg-surface" style={{ width: nameW }}>
             <div className="h-9 border-b border-line bg-sunken" />
-            {members.map((m) => (
-              <div key={m.id} className="flex flex-col justify-center border-b border-line px-3" style={{ height: ROW_H }}>
+            <div className="relative" style={{ height: members.length * ROW_H }}>
+            {members.map((m, i) => (
+              <div key={m.id} className="row-slide absolute inset-x-0 flex flex-col justify-center border-b border-line bg-surface px-3" style={{ height: ROW_H, ...rowT(i) }}>
                 <div className="flex items-center gap-1.5">
                   {brushId && skills.get(m.id)?.has(brushId) && <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: roleDot(posMap.get(brushId)?.color) }} title={tr('会这个岗位')} />}
                   <span className={cn('truncate text-sm font-medium', brushId && (skills.get(m.id)?.size ?? 0) > 0 && !skills.get(m.id)!.has(brushId) && 'opacity-55')}>{m.name}</span>
@@ -208,6 +239,8 @@ export function DayTimeline(props: Props) {
                 </span>
               </div>
             ))}
+            {divider && <div className="row-slide pointer-events-none absolute inset-x-0 z-[1] border-t-2 border-dashed border-accent/60" style={rowT(qualified, -1)} />}
+            </div>
             <div className="flex items-center border-t border-line bg-sunken px-3 text-xs font-medium text-mute" style={{ height: COVER_H }}>{tr('人手')}</div>
           </div>
 
@@ -224,21 +257,22 @@ export function DayTimeline(props: Props) {
               {crossesMidnight && <div className="pointer-events-none absolute inset-y-0 border-l-2 border-dashed border-accent/70" style={{ left: left(1440) }} />}
               {/* 行底 + 创建入口 */}
               {members.map((m, i) => (
-                <div key={m.id} onPointerDown={onLaneDown} className="absolute inset-x-0 cursor-crosshair border-b border-line" style={{ top: i * ROW_H, height: ROW_H }} data-lane />
+                <div key={m.id} onPointerDown={onLaneDown} onPointerUp={onLaneUp} className="row-slide absolute inset-x-0 cursor-crosshair border-b border-line" style={{ height: ROW_H, ...rowT(i) }} data-lane />
               ))}
+              {divider && <div className="row-slide pointer-events-none absolute inset-x-0 z-[1] border-t-2 border-dashed border-accent/60" style={rowT(qualified, -1)} />}
               {/* 员工报的可用时间：半透明的绿色时间条 */}
               {avail.map((a) => {
                 const i = rowOf.get(a.member_id); if (i === undefined) return null
-                return <div key={a.id} className="pointer-events-none absolute rounded-xl border border-avail/40 bg-avail/25" title={a.note || undefined} style={{ top: i * ROW_H + 6, height: ROW_H - 12, left: left(a.start_min), width: (a.end_min - a.start_min) * px }} />
+                return <div key={a.id} className="row-slide pointer-events-none absolute rounded-xl border border-avail/40 bg-avail/25" title={a.note || undefined} style={{ ...rowT(i, 6), height: ROW_H - 12, left: left(a.start_min), width: (a.end_min - a.start_min) * px }} />
               })}
               {/* 同一个人在其他门店的班次：灰色斜纹，只读 */}
               {otherShifts.map((o) => {
                 const i = rowOf.get(o.member_id); if (i === undefined) return null
                 const w = (o.end_min - o.start_min) * px
                 return (
-                  <div key={o.id} className="pointer-events-none absolute flex flex-col justify-center overflow-hidden rounded-xl border border-line px-2.5 text-mute"
+                  <div key={o.id} className="row-slide pointer-events-none absolute flex flex-col justify-center overflow-hidden rounded-xl border border-line px-2.5 text-mute"
                     title={tr('在「{loc}」 {a} - {b}', { loc: locationNames.get(o.location_id) ?? tr('其他门店'), a: fmtMin(o.start_min), b: fmtMin(o.end_min) })}
-                    style={{ top: i * ROW_H + 6, height: ROW_H - 12, left: left(o.start_min), width: w, background: 'repeating-linear-gradient(135deg, var(--sunken) 0 6px, var(--line) 6px 12px)' }}>
+                    style={{ ...rowT(i, 6), height: ROW_H - 12, left: left(o.start_min), width: w, background: 'repeating-linear-gradient(135deg, var(--sunken) 0 6px, var(--line) 6px 12px)' }}>
                     {w >= 56 && (
                       <>
                         <span className="truncate text-[12px] font-semibold leading-tight">{locationNames.get(o.location_id) ?? tr('其他门店')}</span>
@@ -261,11 +295,11 @@ export function DayTimeline(props: Props) {
                     onPointerDown={(e) => onShiftDown(e, s, 'move')}
                     onContextMenu={(e) => { e.preventDefault(); props.onDelete(shifts.find((x) => x.id === s.id) ?? s) }}
                     title={bad ? tr('注意：{msg}', { msg: bad }) : `${fmtMin(s.start_min)} - ${fmtMin(s.end_min)}${s.note ? `\n${s.note}` : ''}`}
-                    className={cn('absolute flex cursor-grab select-none items-center overflow-hidden rounded-full border px-3.5', s.training && 'border-dashed', bad ? 'ring-2 ring-danger ring-offset-1 ring-offset-surface' : '', active && 'z-10 cursor-grabbing opacity-90 shadow-lg')}
-                    style={{ ...roleStyle(p?.color ?? NO_POS_COLOR), top: i * ROW_H + 6, height: ROW_H - 12, left: left(s.start_min), width: w, touchAction: 'none', transition: active ? 'none' : undefined }}
+                    className={cn('row-slide absolute flex cursor-grab select-none items-center overflow-hidden rounded-full border px-3.5', s.training && 'border-dashed', bad ? 'ring-2 ring-danger ring-offset-1 ring-offset-surface' : '', active && 'z-10 cursor-grabbing opacity-90 shadow-lg')}
+                    style={{ ...roleStyle(p?.color ?? NO_POS_COLOR), ...rowT(i, 6, !!active), height: ROW_H - 12, left: left(s.start_min), width: w, touchAction: 'none' }}
                   >
-                    <span className="absolute inset-y-0 left-0 w-2 cursor-ew-resize" onPointerDown={(e) => onShiftDown(e, s, 'resize-l')} />
-                    <span className="absolute inset-y-0 right-0 w-2 cursor-ew-resize" onPointerDown={(e) => onShiftDown(e, s, 'resize-r')} />
+                    <span className="absolute inset-y-0 left-0 w-2 cursor-ew-resize [@media(pointer:coarse)]:w-4" onPointerDown={(e) => onShiftDown(e, s, 'resize-l')} />
+                    <span className="absolute inset-y-0 right-0 w-2 cursor-ew-resize [@media(pointer:coarse)]:w-4" onPointerDown={(e) => onShiftDown(e, s, 'resize-r')} />
                     {w >= 56 && (
                       <span className="flex items-center gap-1.5 truncate text-[12px] font-semibold leading-tight">
                         {bad && <WarningCircle size={14} weight="fill" className="shrink-0" />}
@@ -282,7 +316,7 @@ export function DayTimeline(props: Props) {
                 const i = rowOf.get(drag.memberId) ?? 0
                 const p = brushId ? posMap.get(brushId) : undefined
                 return (
-                  <div className="pointer-events-none absolute flex items-center rounded-full border px-3.5 text-xs font-medium opacity-80" style={{ ...roleStyle(p?.color ?? NO_POS_COLOR), top: i * ROW_H + 6, height: ROW_H - 12, left: left(drag.start), width: (drag.end - drag.start) * px }}>
+                  <div className="pointer-events-none absolute flex items-center rounded-full border px-3.5 text-xs font-medium opacity-80" style={{ ...roleStyle(p?.color ?? NO_POS_COLOR), ...rowT(i, 6, true), height: ROW_H - 12, left: left(drag.start), width: (drag.end - drag.start) * px }}>
                     <span className="num truncate">{fmtMin(drag.start)}-{fmtMin(drag.end)}</span>
                   </div>
                 )
@@ -308,7 +342,14 @@ export function DayTimeline(props: Props) {
         <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-full bg-sunken ring-2 ring-danger ring-offset-1 ring-offset-bg" />{tr('超出可用时间或时间重叠')}</span>
         <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-full border border-dashed border-ink/60" />{tr('培训班次（人手算 0.5）')}</span>
         {otherShifts.length > 0 && <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-6 rounded-sm border border-line" style={{ background: 'repeating-linear-gradient(135deg, var(--sunken) 0 3px, var(--line) 3px 6px)' }} />{tr('在其他门店的班次')}</span>}
+        {anySkills && brushId && (
+          <label className="flex cursor-pointer items-center gap-1.5">
+            <input type="checkbox" checked={skillFirst} onChange={(e) => toggleSkillFirst(e.target.checked)} className="accent-[var(--accent)]" />
+            {tr('会这个岗位的人排在前面')}
+          </label>
+        )}
         <span className="hidden lg:inline">{tr('在员工那一行拖动来创建班次；拖动班次移动，拖两端调整时长；点击编辑，右键删除。')}</span>
+        <span className="lg:hidden [@media(pointer:fine)]:hidden">{tr('点一下员工那一行的空白处创建班次，再点班次调整时间或删除。')}</span>
       </div>
 
       {editShift && editing && (
