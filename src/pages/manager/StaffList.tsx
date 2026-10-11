@@ -5,13 +5,31 @@ import { useManager } from './ManagerLayout'
 import { api } from '../../data'
 import { errMsg } from '../../lib/errors'
 import { roleDot, roleStyle } from '../../lib/roles'
-import type { Member, MemberStatus, Position } from '../../lib/types'
+import type { Member, MemberRole, MemberStatus, Position } from '../../lib/types'
+import { DEFAULT_SHIFT_MANAGER_PERMS, PERMISSION_KEYS } from '../../lib/permissions'
+import type { Permission } from '../../lib/permissions'
 import { translate as t } from '../../i18n/core'
 
 const COL_W = 84 // 技能矩阵每列的宽度（px）
 
+/** 开关的名字和说明；用函数是因为要跟着语言切换 */
+const permLabel = (p: Permission) => ({
+  schedule: t('排班'),
+  publish: t('发布班表'),
+  view_availability: t('查看可用时间'),
+  manage_staff: t('管理员工'),
+  export_pdf: t('导出 PDF'),
+}[p])
+const permHint = (p: Permission) => ({
+  schedule: t('创建、移动、删除班次，写当日任务'),
+  publish: t('发布或撤回一周的班表，员工才能看到'),
+  view_availability: t('查看全体员工报的可用时间'),
+  manage_staff: t('添加员工、改试工 / 正式、勾选岗位技能'),
+  export_pdf: t('导出班表 PDF'),
+}[p])
+
 export default function StaffList() {
-  const { shop, members, positions, skills, setSkill, reloadMembers } = useManager()
+  const { shop, members, positions, skills, setSkill, reloadMembers, isOwner } = useManager()
   const toast = useToast()
   const [name, setName] = useState('')
   const [status, setStatus] = useState<MemberStatus>('regular')
@@ -30,6 +48,17 @@ export default function StaffList() {
     if (!window.confirm(t('删除「{name}」？TA 的报班和已排班次都会一起删除，无法恢复。', { name: m.name }))) return
     try { await api.deleteMember(m.id); await reloadMembers(); toast(t('已删除')) } catch (e) { toast(errMsg(e)) }
   }
+  /** 店长才能改：把已注册员工设为 Shift manager（默认能排班、看可用时间、导出），或改回普通员工 */
+  const setRole = async (m: Member, role: MemberRole) => {
+    try {
+      await api.updateMember(m.id, { role, permissions: role === 'shift_manager' ? { ...DEFAULT_SHIFT_MANAGER_PERMS } : {} })
+      await reloadMembers()
+    } catch (e) { toast(errMsg(e)) }
+  }
+  const setPerm = async (m: Member, key: Permission, on: boolean) => {
+    try { await api.updateMember(m.id, { permissions: { ...m.permissions, [key]: on } }); await reloadMembers() } catch (e) { toast(errMsg(e)) }
+  }
+  const managerCount = members.filter((m) => m.role === 'shift_manager').length
   const toggle = async (m: Member, p: Position) => {
     try { await setSkill(m.id, p.id, !skills.get(m.id)?.has(p.id)) } catch (e) { toast(errMsg(e)) }
   }
@@ -48,6 +77,7 @@ export default function StaffList() {
         <h1 className="text-xl font-semibold tracking-tight">{t('员工')}</h1>
         <p className="mt-1 text-sm text-mute">{t('试工员工在排班表里会带「试工」标记。员工通过报班链接填写时，名字会自动加到这里。')}</p>
         <p className="mt-1 text-sm text-mute">{t('勾选每个人会的岗位。把员工排进他不会的岗位，这个班次会自动标成「培训」。一个岗位都没勾的员工不会被标培训。')}</p>
+        {isOwner && <p className="mt-1 text-sm text-mute">{t('已注册的员工可以设为 Shift manager，由你决定他能做哪些管理操作。')}{managerCount > 0 && <span className="ml-1 font-medium text-ink">{t('现在有 {n} 位。', { n: managerCount })}</span>}</p>}
       </div>
 
       <form onSubmit={add} className="flex flex-wrap items-center gap-2">
@@ -77,8 +107,12 @@ export default function StaffList() {
                         aria-label={t('{name} 的名字', { name: m.name })} maxLength={30}
                         className="h-9 min-w-0 flex-1 rounded-control bg-transparent px-2 text-sm font-semibold hover:bg-sunken focus:bg-sunken focus:outline-none" />
                       {m.user_id ? <Badge tone="accent">{t('已注册')}</Badge> : <Badge>{t('访客')}</Badge>}
+                      {isOwner && m.user_id && (
+                        <Segmented size="sm" value={m.role} onChange={(r) => setRole(m, r)} options={[{ value: 'staff', label: t('员工') }, { value: 'shift_manager', label: 'Shift manager' }]} />
+                      )}
+                      {!isOwner && m.role === 'shift_manager' && <Badge tone="warn">Shift manager</Badge>}
                       <Segmented size="sm" value={m.status} onChange={(s) => setStatusOf(m, s)} options={[{ value: 'regular', label: t('正式') }, { value: 'trial', label: t('试工') }]} />
-                      <button onClick={() => remove(m)} aria-label={t('删除 {name}', { name: m.name })} className="press rounded p-1.5 text-faint hover:bg-sunken hover:text-danger"><Trash size={16} /></button>
+                      {(isOwner || m.role !== 'shift_manager') && <button onClick={() => remove(m)} aria-label={t('删除 {name}', { name: m.name })} className="press rounded p-1.5 text-faint hover:bg-sunken hover:text-danger"><Trash size={16} /></button>}
                     </div>
 
                     {/* 桌面：矩阵格子 */}
@@ -109,6 +143,25 @@ export default function StaffList() {
                       </div>
                     )}
                   </div>
+
+                  {/* Shift manager 的权限开关（只有店长看得到、改得了） */}
+                  {isOwner && m.role === 'shift_manager' && (
+                    <div className="mt-3 rounded-2xl bg-sunken px-3 py-2.5">
+                      <p className="text-xs font-medium text-mute">{t('{name} 可以：', { name: m.name })}</p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {PERMISSION_KEYS.map((k) => {
+                          const on = m.permissions[k] === true
+                          return (
+                            <button key={k} role="switch" aria-checked={on} title={permHint(k)} onClick={() => setPerm(m, k, !on)}
+                              className={cn('press flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold', on ? 'border-ink bg-ink text-bg' : 'border-dashed border-line-strong text-mute hover:bg-surface')}>
+                              {on && <Check size={13} weight="bold" />}{permLabel(k)}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <p className="mt-2 text-[11px] text-mute">{t('店铺设置、岗位标签、门店、店铺码和权限只有店长能改。')}</p>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

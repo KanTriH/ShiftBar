@@ -1,5 +1,5 @@
 import type {
-  AppUser, AvailEntry, Availability, DailyTask, Location, Member, MemberStatus, PdfStyle, Position, PublicShop, Role,
+  AppUser, AvailEntry, Availability, DailyTask, Location, Member, MemberRole, MemberStatus, PdfStyle, Position, PublicShop, Role,
   MemberPosition, Shift, ShiftInput, Shop, WeekHours, WeekStartDay,
 } from '../lib/types'
 
@@ -33,7 +33,8 @@ export interface Api {
   deletePosition(id: string): Promise<void>
   listMembers(shopId: string): Promise<Member[]>
   createMember(shopId: string, name: string, status: MemberStatus): Promise<Member>
-  updateMember(id: string, patch: { name?: string; status?: MemberStatus }): Promise<void>
+  /** role / permissions 只有店长能改（数据库里有触发器保证） */
+  updateMember(id: string, patch: { name?: string; status?: MemberStatus; role?: MemberRole; permissions?: Member['permissions'] }): Promise<void>
   deleteMember(id: string): Promise<void>
   /** 店长：整家店的技能矩阵；员工：只有自己的几行 */
   listMemberPositions(shopId: string): Promise<MemberPosition[]>

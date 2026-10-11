@@ -197,6 +197,11 @@ function Dashboard({ shop, member }: { shop: Shop; member: Member }) {
         <p className="text-sm text-mute">{shop.name}{placeLabel ? ` · ${placeLabel}` : ''}</p>
         <h1 className="mt-1 break-words font-display text-[clamp(3rem,6vw,4.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em]">Hi,<br />{member.name}</h1>
         {member.status === 'trial' && <div className="mt-3"><Badge tone="warn">{t('试工')}</Badge></div>}
+        {member.role === 'shift_manager' && (
+          <Link to="/manager" className="press mt-4 inline-flex h-10 items-center gap-2 rounded-full border border-ink/70 px-4 text-sm font-semibold hover:bg-sunken">
+            {t('进入管理页')}<ArrowRight size={15} />
+          </Link>
+        )}
         {mySkills.length > 0 && (
           <div className="mt-4">
             <p className="text-xs text-mute">{t('我会的岗位')}</p>

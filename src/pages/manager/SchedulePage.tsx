@@ -14,7 +14,10 @@ import type { Availability, DailyTask, Shift, ShiftInput } from '../../lib/types
 import { addDays, dayLabel, fmtDay, fmtHours, fmtMD, fmtRangeShort, todayISO, weekDays, weekStart, weekdayIdx } from '../../lib/time'
 
 export default function SchedulePage() {
-  const { shop, locations, positions, members, skills } = useManager()
+  const { shop, locations, positions, members, skills, can } = useManager()
+  const canEdit = can('schedule')
+  const canPublish = can('publish')
+  const canExport = can('export_pdf')
   const toast = useToast()
   const wsd = shop.week_start
   const [week, setWeek] = useState(weekStart(todayISO(), wsd))
@@ -127,7 +130,7 @@ export default function SchedulePage() {
   const weekTrainMin = trainingMinutes(locShifts)
 
   if (members.length === 0) {
-    return <Empty title={t('还没有员工')} hint={t('员工通过分享链接报班后会自动出现在这里，你也可以先手动添加。')} action={<Link to="/manager/staff"><Button variant="primary" size="sm">{t('去添加员工')}</Button></Link>} />
+    return <Empty title={t('还没有员工')} hint={t('员工通过分享链接报班后会自动出现在这里，你也可以先手动添加。')} action={can('manage_staff') ? <Link to="/manager/staff"><Button variant="primary" size="sm">{t('去添加员工')}</Button></Link> : undefined} />
   }
 
   return (
@@ -143,10 +146,12 @@ export default function SchedulePage() {
         <div className="flex flex-wrap items-center gap-3">
           <span className="num hidden text-sm text-mute sm:inline">{locations.length > 1 ? t('{loc} {h} 小时', { loc: loc?.name ?? '', h: fmtHours(weekMin) }) : t('本周共 {h} 小时', { h: fmtHours(weekMin) })}{weekTrainMin > 0 && <span className="ml-2">{t('其中培训 {h} 小时', { h: fmtHours(weekTrainMin) })}</span>}</span>
           {isPublished ? <Badge tone="good">{t('已发布')}</Badge> : <Badge tone="warn">{t('草稿')}</Badge>}
-          <Link to={`/manager/print?week=${week}`}><Button>{t('导出 PDF')}</Button></Link>
-          <Button variant={isPublished ? 'secondary' : 'primary'} onClick={togglePublish}>
-            {isPublished ? t('撤回发布') : <>{t('发布本周')}<ArrowRight size={16} /></>}
-          </Button>
+          {canExport && <Link to={`/manager/print?week=${week}`}><Button>{t('导出 PDF')}</Button></Link>}
+          {canPublish && (
+            <Button variant={isPublished ? 'secondary' : 'primary'} onClick={togglePublish}>
+              {isPublished ? t('撤回发布') : <>{t('发布本周')}<ArrowRight size={16} /></>}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -185,7 +190,7 @@ export default function SchedulePage() {
       )}
 
       {/* 岗位画笔 */}
-      <div className="flex flex-wrap items-center gap-2">
+      {canEdit && <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-mute">{t('新班次的岗位')}</span>
         {positions.map((p) => (
           <button key={p.id} onClick={() => setBrush(p.id)} aria-pressed={brush === p.id}
@@ -195,8 +200,8 @@ export default function SchedulePage() {
             {skills.size > 0 && <span className="num text-[11px] font-medium opacity-70" title={t('会这个岗位的人数')}>{members.filter((m) => skills.get(m.id)?.has(p.id)).length}</span>}
           </button>
         ))}
-        {positions.length === 0 && <Link to="/manager/settings" className="text-sm font-medium text-accent">{t('先添加岗位标签')}</Link>}
-      </div>
+        {positions.length === 0 && can('manage_staff') && <Link to="/manager/settings" className="text-sm font-medium text-accent">{t('先添加岗位标签')}</Link>}
+      </div>}
 
       {shifts === null || !loc ? (
         <Skeleton className="h-96" />
@@ -206,13 +211,13 @@ export default function SchedulePage() {
         <>
           <DayTimeline
             day={day} hours={hours} members={sortedMembers} positions={positions}
-            shifts={dayShifts} otherShifts={otherShifts} locationNames={locationNames} avail={dayAvail} submitted={submitted} brushId={brush} skills={skills}
+            shifts={dayShifts} otherShifts={otherShifts} locationNames={locationNames} avail={dayAvail} submitted={submitted} brushId={brush} skills={skills} readOnly={!canEdit}
             onCreate={(input) => create({ ...input, location_id: loc.id })} onUpdate={update} onDelete={remove}
           />
           <section className="rounded-[22px] border border-line bg-surface p-5">
             <label htmlFor="daily-task" className="text-sm font-semibold">{t('当日任务 Daily Task')}</label>
             <p className="mt-0.5 text-xs text-mute">{locations.length > 1 ? t('这一天在「{loc}」上班的人都需要做的事，一行一件。发布后员工可见，也会印在导出的班表里。', { loc: loc.name }) : t('这一天上班的人都需要做的事，一行一件。发布后员工可见，也会印在导出的班表里。')}</p>
-            <textarea id="daily-task" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={saveTask} rows={3} maxLength={2000}
+            <textarea id="daily-task" value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={saveTask} rows={3} maxLength={2000} readOnly={!canEdit}
               placeholder={t('例如：盘点库存、擦窗户、关闭制冰机')}
               className="mt-2 w-full resize-y rounded-2xl border border-line-strong bg-bg px-4 py-3 text-sm placeholder:text-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25" />
           </section>
