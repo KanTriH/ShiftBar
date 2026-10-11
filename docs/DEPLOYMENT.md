@@ -178,6 +178,9 @@ Supabase 的 Site URL / Redirect URLs 没配置或配错，见[上线指南第 3
 **保存跨午夜的班次、或点"注销账号"时报错。**
 通常是对应的迁移没有运行：跨午夜需要 `0003`，注销需要 `0004`，设置里的"店铺码"开关需要 `0005`，员工页的岗位技能和培训标记需要 `0006`。按顺序补运行即可。
 
+**提示 `Could not find the 'training' column of 'shifts' in the schema cache`。**
+还没有运行迁移 `0006`（或运行后接口层还没刷新）。在 SQL Editor 里运行 `0006_member_skills_training.sql`；已经运行过的话，再执行一次 `notify pgrst, 'reload schema';`。
+
 **报错 `new row violates row-level security policy`。**
 操作被权限规则拒绝了：没有登录，或者登录的账号不是这家店的店长。
 

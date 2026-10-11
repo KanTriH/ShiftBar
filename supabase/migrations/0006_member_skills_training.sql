@@ -31,3 +31,6 @@ create policy member_positions_self_read on public.member_positions for select
   using (exists (select 1 from public.members m where m.id = member_id and m.user_id = auth.uid()));
 
 alter table public.shifts add column if not exists training boolean not null default false;
+
+-- 通知 Supabase 的接口层重新读取表结构；否则新列要等一会儿才会出现在接口里（报 "schema cache" 找不到列）
+notify pgrst, 'reload schema';
