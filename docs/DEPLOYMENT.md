@@ -13,7 +13,7 @@
 ### 1. 创建并配置 Supabase 项目
 
 1. 在 [supabase.com](https://supabase.com) 新建项目，记下数据库密码（只用于直连数据库，前端用不到）。
-2. 打开 **SQL Editor > New query**，把下面四个文件的内容**按顺序**粘贴并运行（每个都要运行成功再运行下一个）：
+2. 打开 **SQL Editor > New query**，把下面五个文件的内容**按顺序**粘贴并运行（每个都要运行成功再运行下一个）：
 
    | 顺序 | 文件 | 作用 |
    |---|---|---|
@@ -21,6 +21,7 @@
    | 2 | [`0002_locations_tasks_settings.sql`](../supabase/migrations/0002_locations_tasks_settings.sql) | 多门店、当日任务、店铺设置（一周起始日 / 假日地区 / PDF 样式） |
    | 3 | [`0003_overnight_shifts.sql`](../supabase/migrations/0003_overnight_shifts.sql) | 支持跨午夜排班 |
    | 4 | [`0004_delete_account.sql`](../supabase/migrations/0004_delete_account.sql) | 用户自己注销账号的函数 `delete_my_account()` |
+   | 5 | [`0005_shop_code_toggle.sql`](../supabase/migrations/0005_shop_code_toggle.sql) | 店长可以选择是否开启店铺码绑定（`shops.code_enabled`） |
 
    [`supabase/reset.sql`](../supabase/reset.sql) 会**清空全部数据**并删除这些表和函数，只在需要从头重来时使用，**绝不要在有真实数据的库上运行**。
 3. **Authentication > Providers > Email**：决定是否开启 "Confirm email"（见下面的[配置参考](#supabase-认证设置)）。
@@ -174,7 +175,7 @@ Supabase 的 Site URL / Redirect URLs 没配置或配错，见[上线指南第 3
 这个名字已经有人注册并认领了。本人请登录后再填；如果是另一个同名的人，请换一个名字（例如加上姓氏或数字）。
 
 **保存跨午夜的班次、或点"注销账号"时报错。**
-通常是对应的迁移没有运行：跨午夜需要 `0003`，注销需要 `0004`。按顺序补运行即可。
+通常是对应的迁移没有运行：跨午夜需要 `0003`，注销需要 `0004`，设置里的"店铺码"开关需要 `0005`。按顺序补运行即可。
 
 **报错 `new row violates row-level security policy`。**
 操作被权限规则拒绝了：没有登录，或者登录的账号不是这家店的店长。

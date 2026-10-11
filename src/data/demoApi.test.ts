@@ -331,3 +331,50 @@ describe('account deletion', () => {
     await expect(api.updatePassword('newpass1')).resolves.toBeUndefined()
   })
 })
+
+describe('shop code switch', () => {
+  const SHOP_BOSS = async () => { await as(BOSS) }
+
+  it('is on by default and reported to guests', async () => {
+    expect((await api.getPublicShop(CODE))!.claim_enabled).toBe(true)
+    await SHOP_BOSS()
+    expect((await api.getOwnedShop())!.code_enabled).toBe(true)
+  })
+
+  it('when off, a new account cannot link to the shop', async () => {
+    await SHOP_BOSS()
+    await api.updateShop(SHOP, { code_enabled: false })
+    expect((await api.getPublicShop(CODE))!.claim_enabled).toBe(false)
+    await api.signOut()
+    await api.signUp('new@example.com', 'secret1', 'staff')
+    await rejects(api.claimMember(CODE, '周屿'), 'claim_disabled')
+    expect(await api.getMembership()).toBeNull()
+  })
+
+  it('when off, the share link still takes availability by name', async () => {
+    await SHOP_BOSS()
+    await api.updateShop(SHOP, { code_enabled: false })
+    await api.signOut()
+    await expect(api.submitAvailability(CODE, '沈知微', WS, [entry(WS)])).resolves.toBeUndefined()
+    expect((await api.listMembers(SHOP)).find((m) => m.name === '沈知微')?.user_id).toBeNull()
+  })
+
+  it('when off, staff who are already linked keep their schedule and can still claim idempotently', async () => {
+    await SHOP_BOSS()
+    await api.updateShop(SHOP, { code_enabled: false })
+    await api.signOut()
+    await as(LIN)
+    expect((await api.getMembership())!.member.id).toBe('m1')
+    await expect(api.claimMember(CODE, '林晓')).resolves.toBeUndefined()
+    expect((await api.listMyShifts('m1', WS, addDays(WS, 6))).length).toBeGreaterThan(0)
+  })
+
+  it('turning it back on allows linking again', async () => {
+    await SHOP_BOSS()
+    await api.updateShop(SHOP, { code_enabled: false })
+    await api.updateShop(SHOP, { code_enabled: true })
+    await api.signOut()
+    await api.signUp('new@example.com', 'secret1', 'staff')
+    await expect(api.claimMember(CODE, '周屿')).resolves.toBeUndefined()
+  })
+})

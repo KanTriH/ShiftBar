@@ -19,7 +19,7 @@ export default function Settings() {
   const copy = async (text: string) => {
     try { await navigator.clipboard.writeText(text); toast(t('已复制')) } catch { toast(t('复制失败，请手动选中复制')) }
   }
-  const saveShop = async (patch: { name?: string; hours?: WeekHours }) => {
+  const saveShop = async (patch: { name?: string; hours?: WeekHours; code_enabled?: boolean }) => {
     try { await api.updateShop(shop.id, patch); setShop({ ...shop, ...patch }) } catch (e) { toast(errMsg(e)) }
   }
   const setDay = (i: number, v: WeekHours[number]) => saveShop({ hours: shop.hours.map((h, j) => (j === i ? v : h)) })
@@ -35,7 +35,24 @@ export default function Settings() {
           <Input readOnly value={link} onFocus={(e) => e.target.select()} className="num" aria-label={t('报班链接')} />
           <Button onClick={() => copy(link)}><Copy size={16} />{t('复制')}</Button>
         </div>
-        <p className="text-sm text-mute">{t('店铺码：')}<button className="num font-semibold text-ink underline decoration-line underline-offset-2" onClick={() => copy(shop.code)}>{shop.code}</button>{t('（员工注册后凭它绑定店铺）')}</p>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold">{t('店铺码')}</h2>
+            <p className="mt-1 text-sm text-mute">{shop.code_enabled
+              ? t('已开启：员工可以注册账号，用店铺码绑定店铺，之后能查看自己的班表和工时。')
+              : t('已关闭：员工只能通过上面的报班链接报班，不会和店铺绑定，也看不到自己的班表和工时。已经绑定的员工不受影响。')}</p>
+          </div>
+          <button role="switch" aria-checked={shop.code_enabled} aria-label={t('开启店铺码')} onClick={() => saveShop({ code_enabled: !shop.code_enabled })}
+            className={cn('press relative mt-0.5 h-7 w-12 shrink-0 rounded-full transition-colors', shop.code_enabled ? 'bg-ink' : 'bg-line-strong')}>
+            <span className={cn('absolute top-0.5 h-6 w-6 rounded-full bg-bg transition-all', shop.code_enabled ? 'left-[22px]' : 'left-0.5')} />
+          </button>
+        </div>
+        {shop.code_enabled && (
+          <p className="text-sm text-mute">{t('店铺码：')}<button className="num font-semibold text-ink underline decoration-line underline-offset-2" onClick={() => copy(shop.code)}>{shop.code}</button>{t('（员工注册后凭它绑定店铺）')}</p>
+        )}
       </section>
 
       <section className="flex flex-col gap-4">
