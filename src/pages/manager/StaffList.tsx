@@ -48,7 +48,7 @@ export default function StaffList() {
     if (!window.confirm(t('删除「{name}」？TA 的报班和已排班次都会一起删除，无法恢复。', { name: m.name }))) return
     try { await api.deleteMember(m.id); await reloadMembers(); toast(t('已删除')) } catch (e) { toast(errMsg(e)) }
   }
-  /** 店长才能改：把已注册员工设为 Shift manager（默认能排班、看可用时间、导出），或改回普通员工 */
+  /** 店长才能改：把已注册员工设为管理员（默认能排班、看可用时间、导出），或改回普通员工 */
   const setRole = async (m: Member, role: MemberRole) => {
     try {
       await api.updateMember(m.id, { role, permissions: role === 'shift_manager' ? { ...DEFAULT_SHIFT_MANAGER_PERMS } : {} })
@@ -77,7 +77,7 @@ export default function StaffList() {
         <h1 className="text-xl font-semibold tracking-tight">{t('员工')}</h1>
         <p className="mt-1 text-sm text-mute">{t('试工员工在排班表里会带「试工」标记。员工通过报班链接填写时，名字会自动加到这里。')}</p>
         <p className="mt-1 text-sm text-mute">{t('勾选每个人会的岗位。把员工排进他不会的岗位，这个班次会自动标成「培训」。一个岗位都没勾的员工不会被标培训。')}</p>
-        {isOwner && <p className="mt-1 text-sm text-mute">{t('已注册的员工可以设为 Shift manager，由你决定他能做哪些管理操作。')}{managerCount > 0 && <span className="ml-1 font-medium text-ink">{t('现在有 {n} 位。', { n: managerCount })}</span>}</p>}
+        {isOwner && <p className="mt-1 text-sm text-mute">{t('已注册的员工可以设为管理员，由你决定他能做哪些管理操作。')}{managerCount > 0 && <span className="ml-1 font-medium text-ink">{t('现在有 {n} 位。', { n: managerCount })}</span>}</p>}
       </div>
 
       <form onSubmit={add} className="flex flex-wrap items-center gap-2">
@@ -108,9 +108,9 @@ export default function StaffList() {
                         className="h-9 min-w-0 flex-1 rounded-control bg-transparent px-2 text-sm font-semibold hover:bg-sunken focus:bg-sunken focus:outline-none" />
                       {m.user_id ? <Badge tone="accent">{t('已注册')}</Badge> : <Badge>{t('访客')}</Badge>}
                       {isOwner && m.user_id && (
-                        <Segmented size="sm" value={m.role} onChange={(r) => setRole(m, r)} options={[{ value: 'staff', label: t('员工') }, { value: 'shift_manager', label: 'Shift manager' }]} />
+                        <Segmented size="sm" value={m.role} onChange={(r) => setRole(m, r)} options={[{ value: 'staff', label: t('员工') }, { value: 'shift_manager', label: t('管理员') }]} />
                       )}
-                      {!isOwner && m.role === 'shift_manager' && <Badge tone="warn">Shift manager</Badge>}
+                      {!isOwner && m.role === 'shift_manager' && <Badge tone="warn">{t('管理员')}</Badge>}
                       <Segmented size="sm" value={m.status} onChange={(s) => setStatusOf(m, s)} options={[{ value: 'regular', label: t('正式') }, { value: 'trial', label: t('试工') }]} />
                       {(isOwner || m.role !== 'shift_manager') && <button onClick={() => remove(m)} aria-label={t('删除 {name}', { name: m.name })} className="press rounded p-1.5 text-faint hover:bg-sunken hover:text-danger"><Trash size={16} /></button>}
                     </div>
@@ -144,7 +144,7 @@ export default function StaffList() {
                     )}
                   </div>
 
-                  {/* Shift manager 的权限开关（只有店长看得到、改得了） */}
+                  {/* 管理员的权限开关（只有店长看得到、改得了） */}
                   {isOwner && m.role === 'shift_manager' && (
                     <div className="mt-3 rounded-2xl bg-sunken px-3 py-2.5">
                       <p className="text-xs font-medium text-mute">{t('{name} 可以：', { name: m.name })}</p>

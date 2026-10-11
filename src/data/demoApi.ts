@@ -31,7 +31,7 @@ const delay = () => new Promise((r) => setTimeout(r, 40))
 export const DEMO_ACCOUNTS = {
   manager: { email: 'boss@demo.shift', password: 'demo1234' },
   staff: { email: 'lin@demo.shift', password: 'demo1234' },
-  /** 高见：店长授权的 shift manager（能排班、看可用时间、导出；不能发布，也不能管理员工） */
+  /** 高见：店长授权的 管理员（能排班、看可用时间、导出；不能发布，也不能管理员工） */
   shiftManager: { email: 'gao@demo.shift', password: 'demo1234' },
 }
 export const DEMO_SHOP_CODE = 'zhaomu01'
@@ -116,7 +116,7 @@ function load(): DB {
       // 旧版本的演示数据没有技能矩阵和培训标记
       old.memberPositions ??= []
       old.members.forEach((m) => { m.role ??= 'staff'; m.permissions ??= {} })
-      // 旧演示数据里补上演示用的 shift manager 账号
+      // 旧演示数据里补上演示用的 管理员 账号
       if (!old.users.some((u) => u.id === 'u-gao')) {
         old.users.push({ id: 'u-gao', email: DEMO_ACCOUNTS.shiftManager.email, role: 'staff' })
         const m6 = old.members.find((m) => m.id === 'm6' && m.name === '高见')
@@ -143,7 +143,7 @@ export function createDemoApi(): Api {
   const commit = () => save(db)
   const me = (): DemoUser | null => db.users.find((u) => u.id === db.session) ?? null
   /**
-   * 与数据库行级安全（迁移 0007）同一套规则：店长什么都能做；shift manager 看开关；其他人不行。
+   * 与数据库行级安全（迁移 0007）同一套规则：店长什么都能做；管理员 看开关；其他人不行。
    * 没有登录会话时不拦：演示数据层的测试和访客入口都这样用，真实环境由数据库保证。
    */
   const allowed = (shopId: string, perm: Permission | Permission[] | 'owner'): boolean => {

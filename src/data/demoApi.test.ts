@@ -430,8 +430,8 @@ describe('member skills and training', () => {
   })
 })
 
-describe('shift manager permissions', () => {
-  const GAO = 'gao@demo.shift' // 种子里的 shift manager：能排班、看可用时间、导出；不能发布、不能管理员工
+describe('管理员 permissions', () => {
+  const GAO = 'gao@demo.shift' // 种子里的 管理员：能排班、看可用时间、导出；不能发布、不能管理员工
   const shiftIn = { member_id: 'm1', position_id: 'p-cash', location_id: 'l-main', day: WS, start_min: 540, end_min: 600 }
 
   it('can do what the switches allow', async () => {
@@ -487,12 +487,12 @@ describe('shift manager permissions', () => {
     await rejects(api.createShift(SHOP, shiftIn), 'forbidden')
   })
 
-  it('only the owner can delete a shift manager', async () => {
+  it('only the owner can delete a 管理员', async () => {
     await as(GAO)
     await rejects(api.deleteMember('m6'), 'forbidden')
   })
 
-  it('a shift manager is still a normal staff member for their own schedule', async () => {
+  it('a 管理员 is still a normal staff member for their own schedule', async () => {
     await as(GAO)
     const ms = (await api.getMembership())!
     expect(ms.member.role).toBe('shift_manager')
