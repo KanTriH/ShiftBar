@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Button, Field, Input, Logo, Skeleton, cn, useToast } from '../../components/ui'
 import { api } from '../../data'
 import { useAuth } from '../../auth/AuthContext'
 import { errMsg } from '../../lib/errors'
 import type { Location, Member, MemberPosition, Position, Shop } from '../../lib/types'
-import { isStaffInWrongPlace } from '../../lib/landing'
+import { allowedTabs, hasPermission, tabOfPath } from '../../lib/permissions'
+import type { Permission } from '../../lib/permissions'
 import { POSITION_PRESETS } from '../../lib/types'
 import { LangSwitch } from '../../i18n'
 import { translate as t } from '../../i18n/core'
@@ -20,6 +21,12 @@ interface ManagerCtx {
   skills: Map<string, Set<string>>
   /** 勾选 / 取消一个员工会的岗位（先更新界面，失败再回滚） */
   setSkill: (memberId: string, positionId: string, on: boolean) => Promise<void>
+  /** 当前是店长，还是店长授权的 shift manager */
+  isOwner: boolean
+  /** 我的员工记录（只有 shift manager 有；店长是 null） */
+  me: Member | null
+  /** 当前账号是否有某项权限（店长恒为 true） */
+  can: (p: Permission) => boolean
   reloadLocations: () => Promise<void>
   reloadPositions: () => Promise<void>
   reloadMembers: () => Promise<void>
@@ -28,16 +35,18 @@ const Ctx = createContext<ManagerCtx | null>(null)
 export const useManager = () => useContext(Ctx)!
 
 const TABS = [
-  { to: '/manager', end: true, label: '排班' },
-  { to: '/manager/availability', end: false, label: '可用时间' },
-  { to: '/manager/staff', end: false, label: '员工' },
-  { to: '/manager/settings', end: false, label: '设置' },
-]
+  { to: '/manager', end: true, label: '排班', tab: 'schedule' },
+  { to: '/manager/availability', end: false, label: '可用时间', tab: 'availability' },
+  { to: '/manager/staff', end: false, label: '员工', tab: 'staff' },
+  { to: '/manager/settings', end: false, label: '设置', tab: 'settings' },
+] as const
 
 export default function ManagerLayout() {
   const { user, loading } = useAuth()
   const nav = useNavigate()
+  const loc = useLocation()
   const [shop, setShop] = useState<Shop | null | undefined>(undefined)
+  const [me, setMe] = useState<Member | null>(null)
   const [locations, setLocations] = useState<Location[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [members, setMembers] = useState<Member[]>([])
@@ -51,13 +60,15 @@ export default function ManagerLayout() {
       try {
         const owned = await api.getOwnedShop()
         if (!alive) return
-        // 没有自己的店铺：如果其实是已经绑定了店铺的员工（比如从 /manager 的地址进来、登录后被带回这里），
-        // 就送去员工页，而不是让 TA 看到"创建你的店铺"
-        if (!owned && isStaffInWrongPlace({ hasOwnedShop: false, hasMembership: !!(await api.getMembership()) })) {
-          if (alive) nav('/me', { replace: true })
-          return
-        }
-        if (alive) setShop(owned)
+        if (owned) { setMe(null); setShop(owned); return }
+        const ms = await api.getMembership()
+        if (!alive) return
+        // 店长授权的 shift manager：用同一套管理界面，能做什么由权限开关决定
+        if (ms && ms.member.role === 'shift_manager') { setMe(ms.member); setShop(ms.shop); return }
+        // 其实是已经绑定了店铺的普通员工（比如从 /manager 的地址进来、登录后被带回这里）：
+        // 送去员工页，而不是让 TA 看到"创建你的店铺"
+        if (ms) { nav('/me', { replace: true }); return }
+        setShop(null)
       } catch { if (alive) setShop(null) }
     })()
     return () => { alive = false }
@@ -68,6 +79,11 @@ export default function ManagerLayout() {
   const reloadMembers = useCallback(async () => { if (shop) setMembers(await api.listMembers(shop.id)) }, [shop])
   const reloadSkills = useCallback(async () => { if (shop) setMemberPositions(await api.listMemberPositions(shop.id)) }, [shop])
   useEffect(() => { reloadLocations(); reloadPositions(); reloadMembers(); reloadSkills().catch(() => {}) }, [reloadLocations, reloadPositions, reloadMembers, reloadSkills])
+
+  const isOwner = me === null
+  const actor = useMemo(() => ({ isOwner, role: me?.role ?? 'staff' as const, permissions: me?.permissions ?? {} }), [isOwner, me])
+  const tabs = useMemo(() => allowedTabs(actor), [actor])
+  const can = useCallback((p: Permission) => hasPermission(actor, p), [actor])
 
   const skills = useMemo(() => {
     const m = new Map<string, Set<string>>()
@@ -89,8 +105,25 @@ export default function ManagerLayout() {
   if (shop === undefined) return <div className="mx-auto max-w-6xl p-6"><Skeleton className="h-10 w-56" /><Skeleton className="mt-6 h-80" /></div>
   if (shop === null) return <Onboarding onCreated={setShop} />
 
+  // 没有权限的页面：直接输入地址也进不去，送到第一个有权限的标签
+  const here = tabOfPath(loc.pathname)
+  const firstAllowed = TABS.find((x) => tabs[x.tab])
+  if (!tabs[here] && firstAllowed && here !== 'print') return <Navigate to={firstAllowed.to} replace />
+  if (!tabs[here] && here === 'print') return <Navigate to="/manager" replace />
+  if (!firstAllowed) {
+    return (
+      <div className="grid min-h-[100dvh] place-items-center px-4">
+        <div className="max-w-sm text-center">
+          <h1 className="text-xl font-semibold">{t('还没有管理权限')}</h1>
+          <p className="mt-2 text-sm text-mute">{t('店长还没有给你开通任何管理权限。需要的话，请让店长在「员工」页给你打开。')}</p>
+          <Link to="/me" className="mt-5 inline-block text-sm font-semibold text-accent">{t('回到我的班表')}</Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <Ctx.Provider value={{ shop, setShop, locations, positions, members, skills, setSkill, reloadLocations, reloadPositions, reloadMembers }}>
+    <Ctx.Provider value={{ shop, setShop, locations, positions, members, skills, setSkill, isOwner, me, can, reloadLocations, reloadPositions, reloadMembers }}>
       <div className="min-h-[100dvh]">
         <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur print:hidden">
           <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 sm:h-[68px] sm:flex-nowrap sm:px-6 sm:py-0">
@@ -98,13 +131,14 @@ export default function ManagerLayout() {
             <span className="text-faint">/</span>
             <span className="min-w-0 max-w-[10rem] truncate text-sm font-semibold max-sm:flex-1">{shop.name}</span>
             <nav className="thin-scroll order-last -mx-1 flex basis-full gap-1 overflow-x-auto pb-1 sm:order-none sm:mx-0 sm:ml-1 sm:min-w-0 sm:flex-1 sm:basis-auto sm:pb-0" aria-label={t('主导航')}>
-              {TABS.map(({ to, end, label }) => (
+              {TABS.filter((x) => tabs[x.tab]).map(({ to, end, label }) => (
                 <NavLink key={to} to={to} end={end}
                   className={({ isActive }) => cn('press flex h-10 shrink-0 items-center rounded-full px-4 text-sm font-semibold', isActive ? 'bg-ink text-bg' : 'text-mute hover:bg-sunken hover:text-ink')}>
                   {t(label)}
                 </NavLink>
               ))}
             </nav>
+            {!isOwner && <Link to="/me" className="press px-1 text-sm font-medium text-mute hover:text-ink">{t('我的班表')}</Link>}
             <LangSwitch />
             <button className="press px-1 text-sm font-medium text-mute hover:text-ink" onClick={async () => { await api.signOut(); nav('/') }}>{t('退出')}</button>
           </div>

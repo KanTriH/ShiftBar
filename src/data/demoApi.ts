@@ -6,6 +6,8 @@ import type {
 } from '../lib/types'
 import { DEFAULT_HOURS, POSITION_COLORS } from '../lib/types'
 import { addDays, todayISO, weekStart } from '../lib/time'
+import { DEFAULT_SHIFT_MANAGER_PERMS } from '../lib/permissions'
+import type { Permission } from '../lib/permissions'
 
 interface DemoUser { id: string; email: string; role: Role }
 interface DB {
@@ -29,6 +31,8 @@ const delay = () => new Promise((r) => setTimeout(r, 40))
 export const DEMO_ACCOUNTS = {
   manager: { email: 'boss@demo.shift', password: 'demo1234' },
   staff: { email: 'lin@demo.shift', password: 'demo1234' },
+  /** 高见：店长授权的 shift manager（能排班、看可用时间、导出；不能发布，也不能管理员工） */
+  shiftManager: { email: 'gao@demo.shift', password: 'demo1234' },
 }
 export const DEMO_SHOP_CODE = 'zhaomu01'
 
@@ -36,6 +40,7 @@ function seed(): DB {
   const ws = weekStart(todayISO())
   const owner: DemoUser = { id: 'u-boss', email: DEMO_ACCOUNTS.manager.email, role: 'manager' }
   const lin: DemoUser = { id: 'u-lin', email: DEMO_ACCOUNTS.staff.email, role: 'staff' }
+  const gao: DemoUser = { id: 'u-gao', email: DEMO_ACCOUNTS.shiftManager.email, role: 'staff' }
   const shop: DB['shops'][number] = {
     id: 's1', owner_id: owner.id, name: '朝暮茶事', code: DEMO_SHOP_CODE, code_enabled: true, week_start: 1, region: 'ON', pdf_style: 'table',
     hours: DEFAULT_HOURS.map((h, i) => (i >= 5 ? { open: 600, close: 1380 } : { ...h, close: 1260 })),
@@ -51,9 +56,12 @@ function seed(): DB {
   ]
   const names: [string, Member['status'], string | null][] = [
     ['林晓', 'regular', lin.id], ['周屿', 'regular', null], ['陈嘉禾', 'trial', null],
-    ['吴桐', 'regular', null], ['许安然', 'trial', null], ['高见', 'regular', null],
+    ['吴桐', 'regular', null], ['许安然', 'trial', null], ['高见', 'regular', gao.id],
   ]
-  const members: Member[] = names.map(([name, status, user_id], i) => ({ id: `m${i + 1}`, shop_id: 's1', name, status, user_id }))
+  const members: Member[] = names.map(([name, status, user_id], i) => ({
+    id: `m${i + 1}`, shop_id: 's1', name, status, user_id,
+    role: name === '高见' ? 'shift_manager' : 'staff', permissions: name === '高见' ? { ...DEFAULT_SHIFT_MANAGER_PERMS } : {},
+  }))
   const availability: Availability[] = []
   // 每人一套大致的可用时间模式（分钟）；周末营业时间更晚。吴桐只能去北区店。
   const pattern: Record<string, (d: number) => [number, number][]> = {
@@ -92,7 +100,7 @@ function seed(): DB {
     { shop_id: 's1', location_id: 'l-main', day: addDays(ws, 2), text: 'Weekly Inventory 每周盘点' },
   ]
   return {
-    users: [owner, lin], session: null, shops: [shop], locations, positions: pos, members, availability, shifts, tasks,
+    users: [owner, lin, gao], session: null, shops: [shop], locations, positions: pos, members, availability, shifts, tasks,
     publications: [{ shop_id: 's1', week_start: ws }],
     // 技能矩阵：林晓会 cashier 和 prep，周屿会 bar，陈嘉禾只会 prep，许安然还没设置
     memberPositions: ([['m1', 'p-cash'], ['m1', 'p-prep'], ['m2', 'p-bar'], ['m3', 'p-prep'], ['m4', 'p-prep'], ['m6', 'p-bar'], ['m6', 'p-cash']] as const)
@@ -107,6 +115,13 @@ function load(): DB {
       const old = JSON.parse(raw) as DB
       // 旧版本的演示数据没有技能矩阵和培训标记
       old.memberPositions ??= []
+      old.members.forEach((m) => { m.role ??= 'staff'; m.permissions ??= {} })
+      // 旧演示数据里补上演示用的 shift manager 账号
+      if (!old.users.some((u) => u.id === 'u-gao')) {
+        old.users.push({ id: 'u-gao', email: DEMO_ACCOUNTS.shiftManager.email, role: 'staff' })
+        const m6 = old.members.find((m) => m.id === 'm6' && m.name === '高见')
+        if (m6 && !m6.user_id) { m6.user_id = 'u-gao'; m6.role = 'shift_manager'; m6.permissions = { ...DEFAULT_SHIFT_MANAGER_PERMS } }
+      }
       old.shifts.forEach((s) => { s.training ??= false })
       return old
     }
@@ -127,6 +142,18 @@ export function createDemoApi(): Api {
   const listeners = new Set<(u: AppUser | null) => void>()
   const commit = () => save(db)
   const me = (): DemoUser | null => db.users.find((u) => u.id === db.session) ?? null
+  /**
+   * 与数据库行级安全（迁移 0007）同一套规则：店长什么都能做；shift manager 看开关；其他人不行。
+   * 没有登录会话时不拦：演示数据层的测试和访客入口都这样用，真实环境由数据库保证。
+   */
+  const allowed = (shopId: string, perm: Permission | Permission[] | 'owner'): boolean => {
+    const u = me(); if (!u) return true
+    if (db.shops.find((s) => s.id === shopId)?.owner_id === u.id) return true
+    if (perm === 'owner') return false
+    const m = db.members.find((x) => x.shop_id === shopId && x.user_id === u.id && x.role === 'shift_manager')
+    return !!m && (Array.isArray(perm) ? perm : [perm]).some((p) => m.permissions[p] === true)
+  }
+  const need = (shopId: string | undefined, perm: Permission | Permission[] | 'owner') => { if (!allowed(shopId ?? '', perm)) throw new Error('forbidden') }
   const asUser = (u: DemoUser | null): AppUser | null => (u ? { id: u.id, email: u.email, role: u.role } : null)
   const emit = () => listeners.forEach((cb) => cb(asUser(me())))
   const shopByCode = (code: string) => db.shops.find((s) => s.code === code)
@@ -183,6 +210,7 @@ export function createDemoApi(): Api {
       commit(); return strip(s)
     },
     async updateShop(id, patch) {
+      need(id, 'owner')
       const s = db.shops.find((x) => x.id === id)!
       // 与数据库触发器一致：修改一周起始日会清空发布记录
       if (patch.week_start !== undefined && patch.week_start !== s.week_start) db.publications = db.publications.filter((p) => p.shop_id !== id)
@@ -191,11 +219,13 @@ export function createDemoApi(): Api {
 
     async listLocations(shopId) { await delay(); return db.locations.filter((l) => l.shop_id === shopId).sort((a, b) => a.sort - b.sort) },
     async createLocation(shopId, name) {
+      need(shopId, 'owner')
       const l: Location = { id: uid(), shop_id: shopId, name, sort: db.locations.filter((x) => x.shop_id === shopId).length }
       db.locations.push(l); commit(); return l
     },
-    async updateLocation(id, patch) { Object.assign(db.locations.find((l) => l.id === id)!, patch); commit() },
+    async updateLocation(id, patch) { need(db.locations.find((l) => l.id === id)?.shop_id, 'owner'); Object.assign(db.locations.find((l) => l.id === id)!, patch); commit() },
     async deleteLocation(id) {
+      need(db.locations.find((l) => l.id === id)?.shop_id, 'owner')
       db.locations = db.locations.filter((l) => l.id !== id)
       db.shifts = db.shifts.filter((s) => s.location_id !== id)
       db.tasks = db.tasks.filter((t) => t.location_id !== id)
@@ -205,11 +235,13 @@ export function createDemoApi(): Api {
 
     async listPositions(shopId) { await delay(); return db.positions.filter((p) => p.shop_id === shopId).sort((a, b) => a.sort - b.sort) },
     async createPosition(shopId, name, color) {
+      need(shopId, 'owner')
       const p: Position = { id: uid(), shop_id: shopId, name, color, sort: db.positions.filter((x) => x.shop_id === shopId).length }
       db.positions.push(p); commit(); return p
     },
-    async updatePosition(id, patch) { Object.assign(db.positions.find((p) => p.id === id)!, patch); commit() },
+    async updatePosition(id, patch) { need(db.positions.find((p) => p.id === id)?.shop_id, 'owner'); Object.assign(db.positions.find((p) => p.id === id)!, patch); commit() },
     async deletePosition(id) {
+      need(db.positions.find((p) => p.id === id)?.shop_id, 'owner')
       db.positions = db.positions.filter((p) => p.id !== id)
       db.memberPositions = db.memberPositions.filter((x) => x.position_id !== id)
       db.shifts.forEach((s) => { if (s.position_id === id) s.position_id = null })
@@ -218,12 +250,20 @@ export function createDemoApi(): Api {
 
     async listMembers(shopId) { await delay(); return db.members.filter((m) => m.shop_id === shopId) },
     async createMember(shopId, name, status) {
+      need(shopId, 'manage_staff')
       if (db.members.some((m) => m.shop_id === shopId && m.name.toLowerCase() === name.toLowerCase())) throw new Error('这个名字已经存在')
-      const m: Member = { id: uid(), shop_id: shopId, name, status, user_id: null }
+      const m: Member = { id: uid(), shop_id: shopId, name, status, user_id: null, role: 'staff', permissions: {} }
       db.members.push(m); commit(); return m
     },
-    async updateMember(id, patch) { Object.assign(db.members.find((m) => m.id === id)!, patch); commit() },
+    async updateMember(id, patch) {
+      const m = db.members.find((x) => x.id === id)!
+      // 角色和权限只有店长能改；其余字段要 manage_staff
+      need(m.shop_id, patch.role !== undefined || patch.permissions !== undefined ? 'owner' : 'manage_staff')
+      if (patch.role === 'shift_manager' && !m.user_id) throw new Error('only_registered')
+      Object.assign(m, patch); commit()
+    },
     async deleteMember(id) {
+      { const t = db.members.find((x) => x.id === id); if (t) { need(t.shop_id, 'manage_staff'); if (t.role === 'shift_manager') need(t.shop_id, 'owner') } }
       db.members = db.members.filter((m) => m.id !== id)
       db.memberPositions = db.memberPositions.filter((x) => x.member_id !== id)
       db.availability = db.availability.filter((a) => a.member_id !== id)
@@ -239,6 +279,7 @@ export function createDemoApi(): Api {
       return db.memberPositions.filter((x) => x.shop_id === shopId && (owns || mine.has(x.member_id))).map(({ member_id, position_id }) => ({ member_id, position_id }))
     },
     async setMemberPosition(shopId, memberId, positionId, on) {
+      need(shopId, 'manage_staff')
       const m = db.members.find((x) => x.id === memberId)
       const p = db.positions.find((x) => x.id === positionId)
       if (!m || !p || m.shop_id !== shopId || p.shop_id !== shopId) throw new Error('shop_not_found')
@@ -247,14 +288,15 @@ export function createDemoApi(): Api {
       commit()
     },
 
-    async listAvailability(shopId, from, to) { await delay(); return db.availability.filter((a) => a.shop_id === shopId && a.day >= from && a.day <= to) },
-    async listShifts(shopId, from, to) { await delay(); return db.shifts.filter((s) => s.shop_id === shopId && s.day >= from && s.day <= to) },
+    async listAvailability(shopId, from, to) { need(shopId, ['view_availability', 'schedule']); await delay(); return db.availability.filter((a) => a.shop_id === shopId && a.day >= from && a.day <= to) },
+    async listShifts(shopId, from, to) { need(shopId, ['schedule', 'publish', 'export_pdf']); await delay(); return db.shifts.filter((s) => s.shop_id === shopId && s.day >= from && s.day <= to) },
     async createShift(shopId, input) {
+      need(shopId, 'schedule')
       const s: Shift = { id: uid(), shop_id: shopId, note: '', training: false, ...input, location_id: input.location_id ?? firstLocation(db, shopId).id }
       db.shifts.push(s); commit(); return s
     },
-    async updateShift(id, patch) { Object.assign(db.shifts.find((s) => s.id === id)!, patch); commit() },
-    async deleteShift(id) { db.shifts = db.shifts.filter((s) => s.id !== id); commit() },
+    async updateShift(id, patch) { need(db.shifts.find((s) => s.id === id)?.shop_id, 'schedule'); Object.assign(db.shifts.find((s) => s.id === id)!, patch); commit() },
+    async deleteShift(id) { need(db.shifts.find((s) => s.id === id)?.shop_id, 'schedule'); db.shifts = db.shifts.filter((s) => s.id !== id); commit() },
 
     async listDailyTasks(shopId, from, to) {
       await delay()
@@ -263,12 +305,14 @@ export function createDemoApi(): Api {
       return db.tasks.filter((t) => t.shop_id === shopId && t.day >= from && t.day <= to && (isOwner || published.has(weekOf(shopId, t.day))))
     },
     async setDailyTask(shopId, locationId, day, text) {
+      need(shopId, 'schedule')
       db.tasks = db.tasks.filter((t) => !(t.location_id === locationId && t.day === day))
       if (text.trim()) db.tasks.push({ shop_id: shopId, location_id: locationId, day, text })
       commit()
     },
     async listPublished(shopId) { return db.publications.filter((p) => p.shop_id === shopId).map((p) => p.week_start) },
     async setPublished(shopId, ws, on) {
+      need(shopId, 'publish')
       db.publications = db.publications.filter((p) => !(p.shop_id === shopId && p.week_start === ws))
       if (on) db.publications.push({ shop_id: shopId, week_start: ws })
       commit()
@@ -301,7 +345,7 @@ export function createDemoApi(): Api {
         if (!nm) throw new Error('name_required')
         m = db.members.find((x) => x.shop_id === s.id && x.name.toLowerCase() === nm.toLowerCase())
         if (m && m.user_id && (!u || m.user_id !== u.id)) throw new Error('name_claimed')
-        if (!m) { m = { id: uid(), shop_id: s.id, name: nm.slice(0, 30), status: 'regular', user_id: null }; db.members.push(m) }
+        if (!m) { m = { id: uid(), shop_id: s.id, name: nm.slice(0, 30), status: 'regular', user_id: null, role: 'staff', permissions: {} }; db.members.push(m) }
       }
       const end = addDays(ws, 7)
       const validLocs = new Set(db.locations.filter((l) => l.shop_id === s.id).map((l) => l.id))
@@ -325,7 +369,7 @@ export function createDemoApi(): Api {
       if (m) {
         if (m.user_id) throw new Error('name_claimed')
         m.user_id = u.id
-      } else db.members.push({ id: uid(), shop_id: s.id, name: nm, status: 'regular', user_id: u.id })
+      } else db.members.push({ id: uid(), shop_id: s.id, name: nm, status: 'regular', user_id: u.id, role: 'staff', permissions: {} })
       commit()
     },
     async getMembership() {

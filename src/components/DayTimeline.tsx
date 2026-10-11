@@ -35,13 +35,15 @@ interface Props {
   brushId: string | null
   /** 员工 id -> 会的岗位 id。没勾过任何岗位的员工没有这一项 */
   skills: Map<string, Set<string>>
+  /** 只读：没有排班权限的 shift manager 只能看，不能创建、移动、编辑 */
+  readOnly?: boolean
   onCreate: (input: Omit<ShiftInput, 'location_id'>) => void
   onUpdate: (id: string, patch: Partial<ShiftInput>) => void
   onDelete: (shift: Shift) => void
 }
 
 export function DayTimeline(props: Props) {
-  const { day, hours, members: rawMembers, positions, shifts, otherShifts, locationNames, avail, submitted, brushId, skills } = props
+  const { day, hours, members: rawMembers, positions, shifts, otherShifts, locationNames, avail, submitted, brushId, skills, readOnly = false } = props
   const span = hours.close - hours.open
   const scrollRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -100,14 +102,14 @@ export function DayTimeline(props: Props) {
   const tapRef = useRef<{ x: number; y: number; t: number; raw: number; memberId: string } | null>(null)
   const onLaneUp = (e: React.PointerEvent) => {
     const tap = tapRef.current; tapRef.current = null
-    if (!tap || e.pointerType !== 'touch') return
+    if (readOnly || !tap || e.pointerType !== 'touch') return
     if (Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10 || performance.now() - tap.t > 500) return
     const start = clamp(snap(tap.raw), hours.open, hours.close - 30)
     const end = Math.min(start + TAP_LEN, hours.close)
     props.onCreate({ member_id: tap.memberId, position_id: brushId, day, start_min: start, end_min: end })
   }
   const onLaneDown = (e: React.PointerEvent) => {
-    if (e.button !== 0) return
+    if (readOnly || e.button !== 0) return
     const { raw, row } = locate(e.clientX, e.clientY)
     const m = members[row]; if (!m) return
     if (e.pointerType === 'touch') { setEditing(null); tapRef.current = { x: e.clientX, y: e.clientY, t: performance.now(), raw, memberId: m.id }; return }
@@ -117,7 +119,7 @@ export function DayTimeline(props: Props) {
     e.preventDefault()
   }
   const onShiftDown = (e: React.PointerEvent, s: Shift, kind: 'move' | 'resize-l' | 'resize-r') => {
-    if (e.button !== 0) return
+    if (readOnly || e.button !== 0) return
     e.stopPropagation(); e.preventDefault()
     const { raw } = locate(e.clientX, e.clientY)
     const block = (e.currentTarget as HTMLElement).closest('[data-shift]') as HTMLElement
@@ -257,7 +259,7 @@ export function DayTimeline(props: Props) {
               {crossesMidnight && <div className="pointer-events-none absolute inset-y-0 border-l-2 border-dashed border-accent/70" style={{ left: left(1440) }} />}
               {/* 行底 + 创建入口 */}
               {members.map((m, i) => (
-                <div key={m.id} onPointerDown={onLaneDown} onPointerUp={onLaneUp} className="row-slide absolute inset-x-0 cursor-crosshair border-b border-line" style={{ height: ROW_H, ...rowT(i) }} data-lane />
+                <div key={m.id} onPointerDown={onLaneDown} onPointerUp={onLaneUp} className={cn('row-slide absolute inset-x-0 border-b border-line', !readOnly && 'cursor-crosshair')} style={{ height: ROW_H, ...rowT(i) }} data-lane />
               ))}
               {divider && <div className="row-slide pointer-events-none absolute inset-x-0 z-[1] border-t-2 border-dashed border-accent/60" style={rowT(qualified, -1)} />}
               {/* 员工报的可用时间：半透明的绿色时间条 */}
@@ -293,9 +295,9 @@ export function DayTimeline(props: Props) {
                   <div
                     key={s.id} data-shift
                     onPointerDown={(e) => onShiftDown(e, s, 'move')}
-                    onContextMenu={(e) => { e.preventDefault(); props.onDelete(shifts.find((x) => x.id === s.id) ?? s) }}
+                    onContextMenu={(e) => { e.preventDefault(); if (!readOnly) props.onDelete(shifts.find((x) => x.id === s.id) ?? s) }}
                     title={bad ? tr('注意：{msg}', { msg: bad }) : `${fmtMin(s.start_min)} - ${fmtMin(s.end_min)}${s.note ? `\n${s.note}` : ''}`}
-                    className={cn('row-slide absolute flex cursor-grab select-none items-center overflow-hidden rounded-full border px-3.5', s.training && 'border-dashed', bad ? 'ring-2 ring-danger ring-offset-1 ring-offset-surface' : '', active && 'z-10 cursor-grabbing opacity-90 shadow-lg')}
+                    className={cn('row-slide absolute flex select-none items-center overflow-hidden rounded-full border px-3.5', readOnly ? 'cursor-default' : 'cursor-grab', s.training && 'border-dashed', bad ? 'ring-2 ring-danger ring-offset-1 ring-offset-surface' : '', active && 'z-10 cursor-grabbing opacity-90 shadow-lg')}
                     style={{ ...roleStyle(p?.color ?? NO_POS_COLOR), ...rowT(i, 6, !!active), height: ROW_H - 12, left: left(s.start_min), width: w, touchAction: 'none' }}
                   >
                     <span className="absolute inset-y-0 left-0 w-2 cursor-ew-resize [@media(pointer:coarse)]:w-4" onPointerDown={(e) => onShiftDown(e, s, 'resize-l')} />
@@ -348,8 +350,12 @@ export function DayTimeline(props: Props) {
             {tr('会这个岗位的人排在前面')}
           </label>
         )}
-        <span className="hidden lg:inline">{tr('在员工那一行拖动来创建班次；拖动班次移动，拖两端调整时长；点击编辑，右键删除。')}</span>
-        <span className="lg:hidden [@media(pointer:fine)]:hidden">{tr('点一下员工那一行的空白处创建班次，再点班次调整时间或删除。')}</span>
+        {readOnly ? <span>{tr('你没有排班权限，这里只能查看。')}</span> : (
+          <>
+            <span className="hidden lg:inline">{tr('在员工那一行拖动来创建班次；拖动班次移动，拖两端调整时长；点击编辑，右键删除。')}</span>
+            <span className="lg:hidden [@media(pointer:fine)]:hidden">{tr('点一下员工那一行的空白处创建班次，再点班次调整时间或删除。')}</span>
+          </>
+        )}
       </div>
 
       {editShift && editing && (

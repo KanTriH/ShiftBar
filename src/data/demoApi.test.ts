@@ -429,3 +429,73 @@ describe('member skills and training', () => {
     expect(mine.find((s) => s.id === trainee.id)?.training).toBe(true)
   })
 })
+
+describe('shift manager permissions', () => {
+  const GAO = 'gao@demo.shift' // 种子里的 shift manager：能排班、看可用时间、导出；不能发布、不能管理员工
+  const shiftIn = { member_id: 'm1', position_id: 'p-cash', location_id: 'l-main', day: WS, start_min: 540, end_min: 600 }
+
+  it('can do what the switches allow', async () => {
+    await as(GAO)
+    const s = await api.createShift(SHOP, shiftIn)
+    await expect(api.updateShift(s.id, { start_min: 570 })).resolves.toBeUndefined()
+    await expect(api.deleteShift(s.id)).resolves.toBeUndefined()
+    await expect(api.listAvailability(SHOP, WS, addDays(WS, 6))).resolves.toBeTruthy()
+    await expect(api.listMembers(SHOP)).resolves.toBeTruthy()
+    await expect(api.setDailyTask(SHOP, 'l-main', WS, 'sweep')).resolves.toBeUndefined()
+  })
+
+  it('cannot do what the switches do not allow', async () => {
+    await as(GAO)
+    await rejects(api.setPublished(SHOP, WS, false), 'forbidden') // publish 默认关
+    await rejects(api.createMember(SHOP, '新人', 'regular'), 'forbidden') // manage_staff 默认关
+    await rejects(api.setMemberPosition(SHOP, 'm1', 'p-bar', true), 'forbidden')
+  })
+
+  it('never gets owner-only things: shop settings, positions, roles', async () => {
+    await as(GAO)
+    await rejects(api.updateShop(SHOP, { name: 'x' }), 'forbidden')
+    await rejects(api.createPosition(SHOP, 'new', '#a8694a'), 'forbidden')
+    await rejects(api.createLocation(SHOP, 'new'), 'forbidden')
+    await rejects(api.updateMember('m1', { role: 'shift_manager' }), 'forbidden')
+    await rejects(api.updateMember('m6', { permissions: { publish: true } }), 'forbidden') // 不能给自己加权限
+  })
+
+  it('a plain staff member cannot use any management call', async () => {
+    await as(LIN)
+    await rejects(api.createShift(SHOP, shiftIn), 'forbidden')
+    await rejects(api.listShifts(SHOP, WS, addDays(WS, 6)), 'forbidden')
+  })
+
+  it('only the owner can promote, and only registered staff can be promoted', async () => {
+    await as(BOSS)
+    await api.updateMember('m1', { role: 'shift_manager', permissions: { schedule: true } }) // 林晓已注册
+    expect((await api.listMembers(SHOP)).find((m) => m.id === 'm1')).toMatchObject({ role: 'shift_manager', permissions: { schedule: true } })
+    await rejects(api.updateMember('m2', { role: 'shift_manager' }), 'only_registered') // 周屿是访客
+  })
+
+  it('switches take effect immediately, and demoting removes everything', async () => {
+    await as(BOSS)
+    await api.updateMember('m6', { permissions: { schedule: true, publish: true } })
+    await api.signOut()
+    await as(GAO)
+    await expect(api.setPublished(SHOP, WS, true)).resolves.toBeUndefined()
+    await api.signOut()
+    await as(BOSS)
+    await api.updateMember('m6', { role: 'staff', permissions: {} })
+    await api.signOut()
+    await as(GAO)
+    await rejects(api.createShift(SHOP, shiftIn), 'forbidden')
+  })
+
+  it('only the owner can delete a shift manager', async () => {
+    await as(GAO)
+    await rejects(api.deleteMember('m6'), 'forbidden')
+  })
+
+  it('a shift manager is still a normal staff member for their own schedule', async () => {
+    await as(GAO)
+    const ms = (await api.getMembership())!
+    expect(ms.member.role).toBe('shift_manager')
+    expect(ms.member.id).toBe('m6')
+  })
+})
