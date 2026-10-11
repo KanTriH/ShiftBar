@@ -3,7 +3,7 @@ import type {
   Shift, ShiftInput, Shop, WeekHours, WeekStartDay,
 } from '../lib/types'
 
-export interface ShopPatch { name?: string; hours?: WeekHours; week_start?: WeekStartDay; region?: string; pdf_style?: PdfStyle }
+export interface ShopPatch { name?: string; hours?: WeekHours; week_start?: WeekStartDay; region?: string; pdf_style?: PdfStyle; code_enabled?: boolean }
 
 export interface Api {
   mode: 'supabase' | 'demo'

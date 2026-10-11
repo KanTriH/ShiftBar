@@ -5,7 +5,8 @@ export type WeekHours = (DayHours | null)[]
 
 export type WeekStartDay = 0 | 1 // 0 = 周日, 1 = 周一
 export type PdfStyle = 'table' | 'timeline'
-export interface Shop { id: string; name: string; code: string; hours: WeekHours; week_start: WeekStartDay; region: string; pdf_style: PdfStyle }
+/** code_enabled: 开启时员工可以用店铺码注册并绑定店铺；关闭时只能通过报班链接按名字报班 */
+export interface Shop { id: string; name: string; code: string; code_enabled: boolean; hours: WeekHours; week_start: WeekStartDay; region: string; pdf_style: PdfStyle }
 export interface Location { id: string; shop_id: string; name: string; sort: number }
 export interface DailyTask { shop_id: string; location_id: string; day: string; text: string }
 export interface Position { id: string; shop_id: string; name: string; color: string; sort: number }
@@ -18,7 +19,7 @@ export interface AvailEntry { day: string; start: number; end: number; note: str
 export interface ShiftInput { member_id: string; position_id: string | null; location_id: string; day: string; start_min: number; end_min: number; note?: string }
 export type Role = 'manager' | 'staff'
 export interface AppUser { id: string; email: string; role: Role | null }
-export interface PublicShop { name: string; hours: WeekHours; week_start: WeekStartDay; region: string; locations: { id: string; name: string }[]; members: { name: string; claimed: boolean }[] }
+export interface PublicShop { name: string; hours: WeekHours; week_start: WeekStartDay; region: string; /** 是否允许员工注册并绑定店铺 */ claim_enabled: boolean; locations: { id: string; name: string }[]; members: { name: string; claimed: boolean }[] }
 
 export const DEFAULT_HOURS: DayHours[] = Array.from({ length: 7 }, () => ({ open: 9 * 60, close: 22 * 60 }))
 

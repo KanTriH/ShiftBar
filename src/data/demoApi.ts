@@ -36,7 +36,7 @@ function seed(): DB {
   const owner: DemoUser = { id: 'u-boss', email: DEMO_ACCOUNTS.manager.email, role: 'manager' }
   const lin: DemoUser = { id: 'u-lin', email: DEMO_ACCOUNTS.staff.email, role: 'staff' }
   const shop: DB['shops'][number] = {
-    id: 's1', owner_id: owner.id, name: '朝暮茶事', code: DEMO_SHOP_CODE, week_start: 1, region: 'ON', pdf_style: 'table',
+    id: 's1', owner_id: owner.id, name: '朝暮茶事', code: DEMO_SHOP_CODE, code_enabled: true, week_start: 1, region: 'ON', pdf_style: 'table',
     hours: DEFAULT_HOURS.map((h, i) => (i >= 5 ? { open: 600, close: 1380 } : { ...h, close: 1260 })),
   }
   const locations: Location[] = [
@@ -107,7 +107,7 @@ function save(db: DB) { try { localStorage.setItem(KEY, JSON.stringify(db)) } ca
 export function resetDemo() { try { localStorage.removeItem(KEY) } catch { /* ignore */ } }
 
 type ShopRow = Shop & { owner_id?: string }
-const strip = (s: ShopRow): Shop => ({ id: s.id, name: s.name, code: s.code, hours: s.hours, week_start: s.week_start, region: s.region, pdf_style: s.pdf_style })
+const strip = (s: ShopRow): Shop => ({ id: s.id, name: s.name, code: s.code, code_enabled: s.code_enabled !== false, hours: s.hours, week_start: s.week_start, region: s.region, pdf_style: s.pdf_style })
 const firstLocation = (db: DB, shopId: string) => db.locations.filter((l) => l.shop_id === shopId).sort((a, b) => a.sort - b.sort)[0]
 
 export function createDemoApi(): Api {
@@ -164,7 +164,7 @@ export function createDemoApi(): Api {
     async createShop(name, positionNames) {
       await delay()
       const u = me()!
-      const s: DB['shops'][number] = { id: uid(), owner_id: u.id, name, code: uid().replace(/-/g, '').slice(0, 8), hours: DEFAULT_HOURS.map((h) => ({ ...h })), week_start: 1, region: 'CA', pdf_style: 'table' }
+      const s: DB['shops'][number] = { id: uid(), owner_id: u.id, name, code: uid().replace(/-/g, '').slice(0, 8), code_enabled: true, hours: DEFAULT_HOURS.map((h) => ({ ...h })), week_start: 1, region: 'CA', pdf_style: 'table' }
       db.shops.push(s)
       db.locations.push({ id: uid(), shop_id: s.id, name, sort: 0 })
       positionNames.forEach((n, i) => db.positions.push({ id: uid(), shop_id: s.id, name: n, color: POSITION_COLORS[i % POSITION_COLORS.length], sort: i }))
@@ -249,7 +249,7 @@ export function createDemoApi(): Api {
       const s = shopByCode(code)
       if (!s) return null
       return {
-        name: s.name, hours: s.hours, week_start: s.week_start, region: s.region,
+        name: s.name, hours: s.hours, week_start: s.week_start, region: s.region, claim_enabled: s.code_enabled !== false,
         locations: db.locations.filter((l) => l.shop_id === s.id).sort((a, b) => a.sort - b.sort).map((l) => ({ id: l.id, name: l.name })),
         members: db.members.filter((m) => m.shop_id === s.id).map((m) => ({ name: m.name, claimed: !!m.user_id })),
       }
@@ -288,6 +288,8 @@ export function createDemoApi(): Api {
       const u = me(); if (!u) throw new Error('not_authenticated')
       const s = shopByCode(code); if (!s) throw new Error('shop_not_found')
       if (db.members.some((m) => m.shop_id === s.id && m.user_id === u.id)) return
+      // 与数据库一致：已经绑定的不受影响，新的绑定要店长开着店铺码
+      if (s.code_enabled === false) throw new Error('claim_disabled')
       const nm = name.trim(); if (!nm) throw new Error('name_required')
       const m = db.members.find((x) => x.shop_id === s.id && x.name.toLowerCase() === nm.toLowerCase())
       if (m) {
