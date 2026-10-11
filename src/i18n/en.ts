@@ -158,6 +158,7 @@ export const EN: Record<string, string> = {
   '还没有人会这个岗位': "Nobody can do this position yet",
   '只有 1 个人会，没有备份': "Only one person can do this, no backup",
   '先在「设置」里添加岗位标签，才能勾选员工会什么岗位。': "Add position tags in Settings first, then tick which positions each person can do.",
+  '会这个岗位的人排在前面': "People who can do this position first",
   '周': "Week",
   '双周': "2 weeks",
   '月': "Month",
