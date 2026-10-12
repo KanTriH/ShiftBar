@@ -119,14 +119,22 @@ export function createSupabaseApi(): Api {
       }
       return unwrap(r) as Shift
     },
-    async updateShift(id, patch) {
-      const first = await sb.from('shifts').update(patch).eq('id', id)
-      if (first.error && 'training' in patch && missingTrainingColumn(first.error.message)) {
-        const { training: _t, ...rest } = patch
-        if (Object.keys(rest).length) unwrap(await sb.from('shifts').update(rest).eq('id', id))
-        return
+    async updateShift(id, patch, expectedUpdatedAt) {
+      // 带上读到的 updated_at 做"比较再更新"：别人先改了或删了，这里影响 0 行，而不是悄悄覆盖
+      const run = async (p: typeof patch) => {
+        let q = sb.from('shifts').update(p).eq('id', id)
+        if (expectedUpdatedAt) q = q.eq('updated_at', expectedUpdatedAt)
+        return q.select().maybeSingle()
       }
-      unwrap(first)
+      let r = await run(patch)
+      if (r.error && 'training' in patch && missingTrainingColumn(r.error.message)) {
+        const { training: _t, ...rest } = patch
+        if (!Object.keys(rest).length) return null
+        r = await run(rest)
+      }
+      const row = unwrap(r) as Shift | null
+      if (!row && expectedUpdatedAt) throw new Error('shift_conflict')
+      return row
     },
     async deleteShift(id) { unwrap(await sb.from('shifts').delete().eq('id', id)) },
     async listDailyTasks(shopId, from, to) {

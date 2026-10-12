@@ -7,6 +7,7 @@ import type {
 import { DEFAULT_HOURS, POSITION_COLORS } from '../lib/types'
 import { addDays, todayISO, weekStart } from '../lib/time'
 import { DEFAULT_SHIFT_MANAGER_PERMS } from '../lib/permissions'
+import { spansOverlap } from '../lib/shiftSpan'
 import type { Permission } from '../lib/permissions'
 
 interface DemoUser { id: string; email: string; role: Role }
@@ -27,6 +28,9 @@ interface DB {
 const KEY = 'shift-scheduler-demo-v2'
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36))
 const delay = () => new Promise((r) => setTimeout(r, 40))
+/** 严格递增的"修改时间"，和数据库里每次修改都会变的 updated_at 一样用来做冲突检查 */
+let lastStamp = 0
+const stamp = () => { lastStamp = Math.max(Date.now(), lastStamp + 1); return new Date(lastStamp).toISOString() }
 
 export const DEMO_ACCOUNTS = {
   manager: { email: 'boss@demo.shift', password: 'demo1234' },
@@ -293,9 +297,22 @@ export function createDemoApi(): Api {
     async createShift(shopId, input) {
       need(shopId, 'schedule')
       const s: Shift = { id: uid(), shop_id: shopId, note: '', training: false, ...input, location_id: input.location_id ?? firstLocation(db, shopId).id }
-      db.shifts.push(s); commit(); return s
+      // 与数据库的排除约束一致：同一个员工的班次不能在时间上重叠
+      if (db.shifts.some((x) => x.member_id === s.member_id && spansOverlap(x, s))) throw new Error('shifts_no_overlap')
+      s.updated_at = stamp()
+      db.shifts.push(s); commit(); return { ...s }
     },
-    async updateShift(id, patch) { need(db.shifts.find((s) => s.id === id)?.shop_id, 'schedule'); Object.assign(db.shifts.find((s) => s.id === id)!, patch); commit() },
+    async updateShift(id, patch, expectedUpdatedAt) {
+      const s = db.shifts.find((x) => x.id === id)
+      // 别人先改了或删了：不覆盖
+      if (!s) { if (expectedUpdatedAt) throw new Error('shift_conflict'); return null }
+      need(s.shop_id, 'schedule')
+      if (expectedUpdatedAt && s.updated_at !== expectedUpdatedAt) throw new Error('shift_conflict')
+      const next = { ...s, ...patch }
+      if (db.shifts.some((x) => x.id !== id && x.member_id === next.member_id && spansOverlap(x, next))) throw new Error('shifts_no_overlap')
+      Object.assign(s, patch, { updated_at: stamp() }); commit()
+      return { ...s }
+    },
     async deleteShift(id) { need(db.shifts.find((s) => s.id === id)?.shop_id, 'schedule'); db.shifts = db.shifts.filter((s) => s.id !== id); commit() },
 
     async listDailyTasks(shopId, from, to) {

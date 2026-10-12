@@ -16,7 +16,9 @@ export type MemberRole = 'staff' | 'shift_manager'
 export interface Member { id: string; shop_id: string; name: string; status: MemberStatus; user_id: string | null; role: MemberRole; permissions: Partial<Record<'schedule' | 'publish' | 'view_availability' | 'manage_staff' | 'export_pdf', boolean>> }
 export interface Availability { id: string; shop_id: string; member_id: string; day: string; start_min: number; end_min: number; note: string; location_ids: string[] }
 /** training: 培训班次（员工被排进了自己不会的岗位）。排班时自动标记，店长可以手动改 */
-export interface Shift { id: string; shop_id: string; member_id: string; position_id: string | null; location_id: string; day: string; start_min: number; end_min: number; note: string; training: boolean }
+export interface Shift { id: string; shop_id: string; member_id: string; position_id: string | null; location_id: string; day: string; start_min: number; end_min: number; note: string; training: boolean
+  /** 最后修改时间和修改人（迁移 0008）。更新时带上读到的 updated_at，别人改过就不会被悄悄覆盖 */
+  updated_at?: string; updated_by?: string | null }
 /** 员工会的岗位（技能矩阵里的一个勾） */
 export interface MemberPosition { member_id: string; position_id: string }
 /** locations 为空 = 任意门店都可以 */

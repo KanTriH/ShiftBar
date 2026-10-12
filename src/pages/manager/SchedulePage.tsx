@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CaretLeft, CaretRight, CheckCircle, Flag } from '@phosphor-icons/react'
 import { Badge, Button, Empty, Segmented, Skeleton, cn, useToast } from '../../components/ui'
@@ -26,6 +26,9 @@ export default function SchedulePage() {
   const [avail, setAvail] = useState<Availability[]>([])
   const [tasks, setTasks] = useState<DailyTask[]>([])
   const [published, setPublished] = useState<string[]>([])
+  const [syncedAt, setSyncedAt] = useState<Date | null>(null)
+  const busyRef = useRef(false) // 正在拖动 / 正在编辑
+  const pendingRef = useRef(0) // 还没返回的保存请求
   const [brush, setBrush] = useState<string | null>(null)
   const [locId, setLocId] = useState<string | null>(() => { try { return localStorage.getItem(`shift-loc-${shop.id}`) } catch { return null } })
   const days = useMemo(() => weekDays(week), [week])
@@ -40,7 +43,7 @@ export default function SchedulePage() {
     setShifts(null)
     const to = addDays(week, 6)
     Promise.all([api.listShifts(shop.id, week, to), api.listAvailability(shop.id, week, to), api.listDailyTasks(shop.id, week, to)])
-      .then(([s, a, t]) => { if (alive) { setShifts(s); setAvail(a); setTasks(t) } })
+      .then(([s, a, t]) => { if (alive) { setShifts(s); setAvail(a); setTasks(t); setSyncedAt(new Date()) } })
       .catch((e) => { toast(errMsg(e)); if (alive) setShifts([]) })
     return () => { alive = false }
   }, [shop.id, week, toast])
@@ -66,15 +69,40 @@ export default function SchedulePage() {
   /* ---------- 班次读写（乐观更新，失败回滚） ---------- */
   const reload = useCallback(async () => setShifts(await api.listShifts(shop.id, week, addDays(week, 6))), [shop.id, week])
 
+  /**
+   * 自动刷新：别的管理员改了班表，这里每 30 秒（以及切回这个标签页时）悄悄同步一次。
+   * 正在拖动 / 编辑 / 有保存请求没返回时不刷新，免得把你手上的操作冲掉。
+   */
+  const refresh = useCallback(async () => {
+    if (busyRef.current || pendingRef.current > 0 || document.hidden) return
+    try {
+      const to = addDays(week, 6)
+      const [s, a, tk] = await Promise.all([api.listShifts(shop.id, week, to), api.listAvailability(shop.id, week, to), api.listDailyTasks(shop.id, week, to)])
+      if (busyRef.current || pendingRef.current > 0) return // 读取期间你开始操作了，这次结果丢掉
+      setShifts(s); setAvail(a)
+      if (document.activeElement?.id !== 'daily-task') setTasks(tk) // 正在输入当日任务时不动它
+      setSyncedAt(new Date())
+    } catch { /* 静默，下一轮再试 */ }
+  }, [shop.id, week])
+  useEffect(() => {
+    const id = setInterval(refresh, 30000)
+    const onVisible = () => { if (!document.hidden) refresh() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', refresh)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', refresh) }
+  }, [refresh])
+  const onBusy = useCallback((b: boolean) => { busyRef.current = b }, [])
+
   const create = async (input: ShiftInput) => {
     // 把员工排进他不会的岗位 = 培训（一个岗位都没勾过的员工无法判断，不算）
     const training = input.training ?? isTraining(skills.get(input.member_id), input.position_id)
     const tmp: Shift = { id: 'tmp-' + Math.random().toString(36).slice(2), shop_id: shop.id, note: '', ...input, training }
     setShifts((s) => [...(s ?? []), tmp])
+    pendingRef.current++
     try {
       const real = await api.createShift(shop.id, { ...input, training })
       setShifts((s) => (s ?? []).map((x) => (x.id === tmp.id ? real : x)))
-    } catch (e) { toast(errMsg(e)); reload() }
+    } catch (e) { toast(errMsg(e)); await reload() } finally { pendingRef.current-- }
   }
   const update = async (id: string, patch: Partial<ShiftInput>) => {
     if (id.startsWith('tmp-')) return
@@ -83,22 +111,28 @@ export default function SchedulePage() {
       const cur = (shifts ?? []).find((x) => x.id === id)
       if (cur) patch = { ...patch, training: isTraining(skills.get(patch.member_id ?? cur.member_id), patch.position_id !== undefined ? patch.position_id : cur.position_id) }
     }
+    const expected = (shifts ?? []).find((x) => x.id === id)?.updated_at
     setShifts((s) => (s ?? []).map((x) => (x.id === id ? { ...x, ...patch } : x)))
-    try { await api.updateShift(id, patch) } catch (e) { toast(errMsg(e)); reload() }
+    pendingRef.current++
+    try {
+      const saved = await api.updateShift(id, patch, expected)
+      if (saved) setShifts((s) => (s ?? []).map((x) => (x.id === id ? { ...x, ...saved } : x))) // 拿到新的 updated_at，下次修改才不会误报冲突
+    } catch (e) { toast(errMsg(e)); await reload() } finally { pendingRef.current-- }
   }
   const remove = async (shift: Shift) => {
     if (shift.id.startsWith('tmp-')) return
     setShifts((s) => (s ?? []).filter((x) => x.id !== shift.id))
+    pendingRef.current++
     try {
       await api.deleteShift(shift.id)
       toast(t('已删除班次'), {
         label: t('撤销'),
         run: async () => {
-          const { id: _id, shop_id: _s, ...input } = shift
+          const { id: _id, shop_id: _s, updated_at: _u, updated_by: _b, ...input } = shift
           try { const back = await api.createShift(shop.id, input); setShifts((s) => [...(s ?? []), back]) } catch (e) { toast(errMsg(e)) }
         },
       })
-    } catch (e) { toast(errMsg(e)); reload() }
+    } catch (e) { toast(errMsg(e)); await reload() } finally { pendingRef.current-- }
   }
 
   const togglePublish = async () => {
@@ -145,6 +179,7 @@ export default function SchedulePage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="num hidden text-sm text-mute sm:inline">{locations.length > 1 ? t('{loc} {h} 小时', { loc: loc?.name ?? '', h: fmtHours(weekMin) }) : t('本周共 {h} 小时', { h: fmtHours(weekMin) })}{weekTrainMin > 0 && <span className="ml-2">{t('其中培训 {h} 小时', { h: fmtHours(weekTrainMin) })}</span>}</span>
+          {syncedAt && <span className="num hidden text-xs text-faint md:inline" title={t('每 30 秒自动同步一次，别的管理员的修改会自动出现')}>{t('已同步 {time}', { time: syncedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}</span>}
           {isPublished ? <Badge tone="good">{t('已发布')}</Badge> : <Badge tone="warn">{t('草稿')}</Badge>}
           {canExport && <Link to={`/manager/print?week=${week}`}><Button>{t('导出 PDF')}</Button></Link>}
           {canPublish && (
@@ -211,7 +246,7 @@ export default function SchedulePage() {
         <>
           <DayTimeline
             day={day} hours={hours} members={sortedMembers} positions={positions}
-            shifts={dayShifts} otherShifts={otherShifts} locationNames={locationNames} avail={dayAvail} submitted={submitted} brushId={brush} skills={skills} readOnly={!canEdit}
+            shifts={dayShifts} otherShifts={otherShifts} locationNames={locationNames} avail={dayAvail} submitted={submitted} brushId={brush} skills={skills} readOnly={!canEdit} onBusy={onBusy}
             onCreate={(input) => create({ ...input, location_id: loc.id })} onUpdate={update} onDelete={remove}
           />
           <section className="rounded-[22px] border border-line bg-surface p-5">

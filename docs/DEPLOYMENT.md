@@ -13,7 +13,7 @@
 ### 1. 创建并配置 Supabase 项目
 
 1. 在 [supabase.com](https://supabase.com) 新建项目，记下数据库密码（只用于直连数据库，前端用不到）。
-2. 打开 **SQL Editor > New query**，把下面七个文件的内容**按顺序**粘贴并运行（每个都要运行成功再运行下一个）：
+2. 打开 **SQL Editor > New query**，把下面八个文件的内容**按顺序**粘贴并运行（每个都要运行成功再运行下一个）：
 
    | 顺序 | 文件 | 作用 |
    |---|---|---|
@@ -24,6 +24,7 @@
    | 5 | [`0005_shop_code_toggle.sql`](../supabase/migrations/0005_shop_code_toggle.sql) | 店长可以选择是否开启店铺码绑定（`shops.code_enabled`） |
    | 6 | [`0006_member_skills_training.sql`](../supabase/migrations/0006_member_skills_training.sql) | 员工会什么岗位（技能矩阵）和培训班次（`member_positions`、`shifts.training`） |
    | 7 | [`0007_shift_manager_permissions.sql`](../supabase/migrations/0007_shift_manager_permissions.sql) | 管理员（Supervisor）：员工的角色和 5 个权限开关，以及对应的行级安全策略 |
+   | 8 | [`0008_shift_conflict_protection.sql`](../supabase/migrations/0008_shift_conflict_protection.sql) | 多人同时排班的冲突保护：班次的 `updated_at` / `updated_by`，以及"同一个员工的班次不能重叠"的排除约束 |
 
    [`supabase/reset.sql`](../supabase/reset.sql) 会**清空全部数据**并删除这些表和函数，只在需要从头重来时使用，**绝不要在有真实数据的库上运行**。
 3. **Authentication > Providers > Email**：决定是否开启 "Confirm email"（见下面的[配置参考](#supabase-认证设置)）。
@@ -178,6 +179,9 @@ Supabase 的 Site URL / Redirect URLs 没配置或配错，见[上线指南第 3
 
 **保存跨午夜的班次、或点"注销账号"时报错。**
 通常是对应的迁移没有运行：跨午夜需要 `0003`，注销需要 `0004`，设置里的"店铺码"开关需要 `0005`，员工页的岗位技能和培训标记需要 `0006`，管理员需要 `0007`。按顺序补运行即可。
+
+**运行 `0008` 时提示"现有数据里有 N 对重叠的班次"。**
+数据库里已经有同一个员工时间重叠的班次，需要先处理。运行 [`supabase/checks/overlapping_shifts.sql`](../supabase/checks/overlapping_shifts.sql) 列出具体是哪几对，在排班页里删除或调整其中一个，再重新运行 `0008`。
 
 **提示 `Could not find the 'training' column of 'shifts' in the schema cache`。**
 还没有运行迁移 `0006`（或运行后接口层还没刷新）。在 SQL Editor 里运行 `0006_member_skills_training.sql`；已经运行过的话，再执行一次 `notify pgrst, 'reload schema';`。
