@@ -419,9 +419,9 @@ describe('member skills and training', () => {
 
   it('new shifts are not training unless marked, and the flag is stored and readable by staff', async () => {
     await as(BOSS)
-    const plain = await api.createShift(SHOP, { member_id: 'm1', position_id: 'p-cash', location_id: 'l-main', day: WS, start_min: 540, end_min: 600 })
+    const plain = await api.createShift(SHOP, { member_id: 'm1', position_id: 'p-cash', location_id: 'l-main', day: WS, start_min: 960, end_min: 1020 })
     expect(plain.training).toBe(false)
-    const trainee = await api.createShift(SHOP, { member_id: 'm1', position_id: 'p-bar', location_id: 'l-main', day: WS, start_min: 700, end_min: 800, training: true })
+    const trainee = await api.createShift(SHOP, { member_id: 'm1', position_id: 'p-bar', location_id: 'l-main', day: WS, start_min: 1040, end_min: 1100, training: true })
     expect(trainee.training).toBe(true)
     await api.signOut()
     await as(LIN)
@@ -432,12 +432,12 @@ describe('member skills and training', () => {
 
 describe('管理员 permissions', () => {
   const GAO = 'gao@demo.shift' // 种子里的 管理员：能排班、看可用时间、导出；不能发布、不能管理员工
-  const shiftIn = { member_id: 'm1', position_id: 'p-cash', location_id: 'l-main', day: WS, start_min: 540, end_min: 600 }
+  const shiftIn = { member_id: 'm1', position_id: 'p-cash', location_id: 'l-main', day: WS, start_min: 960, end_min: 1020 }
 
   it('can do what the switches allow', async () => {
     await as(GAO)
     const s = await api.createShift(SHOP, shiftIn)
-    await expect(api.updateShift(s.id, { start_min: 570 })).resolves.toBeUndefined()
+    await expect(api.updateShift(s.id, { start_min: 990 })).resolves.toBeTruthy()
     await expect(api.deleteShift(s.id)).resolves.toBeUndefined()
     await expect(api.listAvailability(SHOP, WS, addDays(WS, 6))).resolves.toBeTruthy()
     await expect(api.listMembers(SHOP)).resolves.toBeTruthy()
@@ -497,5 +497,69 @@ describe('管理员 permissions', () => {
     const ms = (await api.getMembership())!
     expect(ms.member.role).toBe('shift_manager')
     expect(ms.member.id).toBe('m6')
+  })
+})
+
+describe('conflict protection', () => {
+  const base = { member_id: 'm2', position_id: 'p-bar', location_id: 'l-main', day: addDays(WS, 4), start_min: 600, end_min: 780 } // 周屿，周五 10:00-13:00，种子里这天没班
+
+  it('refuses a shift that overlaps another shift of the same person', async () => {
+    await as(BOSS)
+    await api.createShift(SHOP, base)
+    await rejects(api.createShift(SHOP, { ...base, start_min: 720, end_min: 900 }), 'shifts_no_overlap')
+  })
+
+  it('also refuses overlap across locations', async () => {
+    await as(BOSS)
+    await api.createShift(SHOP, base)
+    await rejects(api.createShift(SHOP, { ...base, location_id: 'l-north', start_min: 700, end_min: 800 }), 'shifts_no_overlap')
+  })
+
+  it('allows back-to-back shifts and different people at the same time', async () => {
+    await as(BOSS)
+    await api.createShift(SHOP, base)
+    await expect(api.createShift(SHOP, { ...base, start_min: 780, end_min: 900 })).resolves.toBeTruthy()
+    await expect(api.createShift(SHOP, { ...base, member_id: 'm4' })).resolves.toBeTruthy()
+  })
+
+  it('an overnight shift blocks the next morning', async () => {
+    await as(BOSS)
+    await api.createShift(SHOP, { ...base, start_min: 1260, end_min: 1560 }) // 周五 21:00 到周六 02:00
+    await rejects(api.createShift(SHOP, { ...base, day: addDays(WS, 5), start_min: 60, end_min: 180 }), 'shifts_no_overlap')
+    await expect(api.createShift(SHOP, { ...base, day: addDays(WS, 5), start_min: 120, end_min: 240 })).resolves.toBeTruthy()
+  })
+
+  it('refuses to move a shift into an overlap', async () => {
+    await as(BOSS)
+    const a = await api.createShift(SHOP, base)
+    const b = await api.createShift(SHOP, { ...base, start_min: 840, end_min: 960 })
+    await rejects(api.updateShift(b.id, { start_min: 700 }, b.updated_at), 'shifts_no_overlap')
+    // 没改成功，原来的时间还在
+    expect((await api.listShifts(SHOP, WS, addDays(WS, 6))).find((s) => s.id === b.id)?.start_min).toBe(840)
+    expect(a.id).not.toBe(b.id)
+  })
+
+  it("a stale edit does not overwrite someone else's change", async () => {
+    await as(BOSS)
+    const s = await api.createShift(SHOP, base)
+    const seen = s.updated_at // 两个管理员都读到了这个版本
+    await api.updateShift(s.id, { start_min: 660 }, seen) // 第一个人保存成功
+    await rejects(api.updateShift(s.id, { end_min: 840 }, seen), 'shift_conflict') // 第二个人拿着旧版本，被拒绝
+    expect((await api.listShifts(SHOP, WS, addDays(WS, 6))).find((x) => x.id === s.id)?.start_min).toBe(660)
+  })
+
+  it('returns the new version so the next edit does not report a false conflict', async () => {
+    await as(BOSS)
+    const s = await api.createShift(SHOP, base)
+    const first = (await api.updateShift(s.id, { start_min: 630 }, s.updated_at))!
+    expect(first.updated_at).not.toBe(s.updated_at)
+    await expect(api.updateShift(s.id, { start_min: 640 }, first.updated_at)).resolves.toBeTruthy()
+  })
+
+  it('editing a shift someone else deleted is reported, not silently ignored', async () => {
+    await as(BOSS)
+    const s = await api.createShift(SHOP, base)
+    await api.deleteShift(s.id)
+    await rejects(api.updateShift(s.id, { start_min: 700 }, s.updated_at), 'shift_conflict')
   })
 })

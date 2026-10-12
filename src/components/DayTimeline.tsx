@@ -37,6 +37,8 @@ interface Props {
   skills: Map<string, Set<string>>
   /** 只读：没有排班权限的 管理员 只能看，不能创建、移动、编辑 */
   readOnly?: boolean
+  /** 正在拖动或正在编辑时通知外面，外面的自动刷新要避开这个时候 */
+  onBusy?: (busy: boolean) => void
   onCreate: (input: Omit<ShiftInput, 'location_id'>) => void
   onUpdate: (id: string, patch: Partial<ShiftInput>) => void
   onDelete: (shift: Shift) => void
@@ -128,6 +130,9 @@ export function DayTimeline(props: Props) {
   }
 
   const dragging = drag !== null
+  const busyCb = props.onBusy
+  useEffect(() => { busyCb?.(dragging || editing !== null) }, [dragging, editing, busyCb])
+  useEffect(() => () => busyCb?.(false), [busyCb])
   useEffect(() => {
     if (!dragging) return
     const move = (e: PointerEvent) => {

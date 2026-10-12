@@ -42,7 +42,11 @@ export interface Api {
   listAvailability(shopId: string, from: string, to: string): Promise<Availability[]>
   listShifts(shopId: string, from: string, to: string): Promise<Shift[]>
   createShift(shopId: string, input: ShiftInput): Promise<Shift>
-  updateShift(id: string, patch: Partial<ShiftInput>): Promise<void>
+  /**
+   * 更新班次。expectedUpdatedAt 是调用者读到这个班次时的 updated_at：如果已经被别人改过或删除，
+   * 抛出 shift_conflict，不会覆盖对方的修改。返回更新后的班次（带新的 updated_at）。
+   */
+  updateShift(id: string, patch: Partial<ShiftInput>, expectedUpdatedAt?: string): Promise<Shift | null>
   deleteShift(id: string): Promise<void>
   listDailyTasks(shopId: string, from: string, to: string): Promise<DailyTask[]>
   /** text 为空会删除该条 */
