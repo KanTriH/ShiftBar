@@ -34,7 +34,8 @@ interface Props {
 export function AvailabilityForm({ hours, locations, weekStartDay, region, load, save, canSubmit, reloadKey, onSaved }: Props) {
   const toast = useToast()
   const thisWeek = weekStart(todayISO(), weekStartDay)
-  const [week, setWeek] = useState(thisWeek)
+  // 报班都是为接下来的一周报的，所以打开时先显示下一周；点"上一周"可以回到本周
+  const [week, setWeek] = useState(() => addDays(thisWeek, 7))
   const [state, setState] = useState<WeekState>({})
   const [loading, setLoading] = useState(true)
   const [dirty, setDirty] = useState(false)
@@ -93,6 +94,7 @@ export function AvailabilityForm({ hours, locations, weekStartDay, region, load,
           <span className="num min-w-[9.5rem] text-center text-sm font-medium">{weekLabel}</span>
           <Button variant="secondary" size="sm" onClick={() => go(1)} aria-label={t('下一周')}><CaretRight size={16} /></Button>
           {week === thisWeek && <span className="ml-2 text-xs text-mute">{t('本周')}</span>}
+          {week === addDays(thisWeek, 7) && <span className="ml-2 text-xs text-mute">{t('下一周')}</span>}
         </div>
         <p className="text-xs text-mute">{loading ? '' : t('这一周已填 {n} 天', { n: days.filter((d) => state[d]?.ranges.length).length })}</p>
       </div>

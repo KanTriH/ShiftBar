@@ -121,7 +121,7 @@ for (const lang of ['zh', 'en']) {
   await page.goto(BASE + '/s/zhaomu01')
   await page.waitForSelector('input[list="known-names"]')
   await page.fill('input[list="known-names"]', lang === 'zh' ? '沈知微' : 'Nora')
-  await page.getByRole('button', { name: lang === 'zh' ? '下一周' : 'Next week' }).click()
+  // 报班页现在默认就是下一周，不用再点"下一周"
   await page.waitForTimeout(500)
   const allDay = page.getByRole('button', { name: lang === 'zh' ? '全天' : 'All day', exact: true })
   await allDay.nth(0).click()
